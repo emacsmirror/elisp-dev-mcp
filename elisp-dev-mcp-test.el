@@ -19,6 +19,14 @@
      (id . 1)
      (params . ((name . ,tool-name) (arguments . ,arguments))))))
 
+(defun elisp-dev-mcp-test--create-tools-list-request ()
+  "Create JSON-RPC request to get list of available tools."
+  (json-encode
+   `((jsonrpc . "2.0")
+     (method . "tools/list")
+     (id . 1)
+     (params . nil))))
+
 (defun elisp-dev-mcp-test--send-request (request)
   "Send REQUEST to the MCP server and return parsed response data."
   (let ((json-object-type 'alist)
@@ -112,6 +120,39 @@
               (response))
           (setq response (elisp-dev-mcp-test--send-request request))
           (elisp-dev-mcp-test--verify-error-response response "Error:")))
+    
+    ;; Clean up
+    (elisp-dev-mcp-disable)
+    (mcp-stop)))
+
+(ert-deftest elisp-dev-mcp-test-tools-list-read-only ()
+  "Test that tools list includes read-only annotation for describe-function."
+  (unwind-protect
+      (progn
+        ;; Start the MCP server
+        (mcp-start)
+        (elisp-dev-mcp-enable)
+        
+        ;; Get the list of tools
+        (let* ((request (elisp-dev-mcp-test--create-tools-list-request))
+               (response (elisp-dev-mcp-test--send-request request))
+               (result (assoc-default 'result response))
+               (tools (assoc-default 'tools result))
+               (describe-function-tool nil))
+          
+          ;; Find the elisp-describe-function tool
+          (dotimes (i (length tools))
+            (let ((tool (aref tools i)))
+              (when (string= (assoc-default 'name tool) "elisp-describe-function")
+                (setq describe-function-tool tool))))
+          
+          ;; Verify the tool exists
+          (should describe-function-tool)
+          
+          ;; Verify it has the read-only annotation set to true
+          (let ((annotations (assoc-default 'annotations describe-function-tool)))
+            (should annotations)
+            (should (eq (assoc-default 'readOnlyHint annotations) t)))))
     
     ;; Clean up
     (elisp-dev-mcp-disable)
