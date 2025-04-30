@@ -36,10 +36,11 @@ MCP Parameters:
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
   "Enable the Elisp development MCP tools."
-  (mcp-register-tool #'elisp-dev-mcp--describe-function
-                     :id "elisp-describe-function"
-                     :description "Get full documentation for an Emacs Lisp function"
-                     :read-only t))
+  (mcp-register-tool
+   #'elisp-dev-mcp--describe-function
+   :id "elisp-describe-function"
+   :description "Get full documentation for an Emacs Lisp function"
+   :read-only t))
 
 ;;;###autoload
 (defun elisp-dev-mcp-disable ()

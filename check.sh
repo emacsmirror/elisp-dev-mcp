@@ -36,13 +36,10 @@ else
 fi
 
 echo "Running elisp-lint on Emacs Lisp files..."
-if ! emacs -batch \
-	--eval "(add-to-list 'load-path (expand-file-name \"~/.emacs.d/elpa/mcp/\"))" \
-	--eval "(progn
-                     (add-to-list 'load-path \".\")
-                     (when (require 'elisp-lint nil t)
-                       (dolist (file '(\"elisp-dev-mcp.el\" \"elisp-dev-mcp-test.el\"))
-                         (elisp-lint-file file))))"; then
+if ! emacs -Q --batch \
+	--eval "(package-initialize)" \
+	--eval "(require 'elisp-lint)" \
+	-f elisp-lint-files-batch ./*.el; then
 	echo "elisp-lint failed"
 	STATUS=1
 fi
