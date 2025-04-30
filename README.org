@@ -2,6 +2,9 @@
 #+AUTHOR: You
 #+DATE: 2024
 
+[[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml/badge.svg]]
+[[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/linter.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/linter.yml/badge.svg]]
+
 * Overview
 
 =elisp-dev-mcp= is an Emacs package that provides an MCP (Machine Code Protocol) server
