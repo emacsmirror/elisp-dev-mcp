@@ -49,10 +49,44 @@
           (should result)
           (should (assoc-default 'content result))
           (should (= 1 (length (assoc-default 'content result))))
+          ;; Verify isError flag is false for successful response
+          (should (eq (assoc-default 'isError result) :json-false))
           (let ((text-item (aref (assoc-default 'content result) 0)))
             (should (string= "text" (assoc-default 'type text-item)))
             (should (stringp (assoc-default 'text text-item)))
             (should (string-match-p "defun" (assoc-default 'text text-item))))))
+    
+    ;; Clean up
+    (elisp-dev-mcp-disable)
+    (mcp-stop)))
+
+(ert-deftest elisp-dev-mcp-test-describe-nonexistent-function ()
+  "Test that describe-function MCP handler handles non-existent functions."
+  (unwind-protect
+      (progn
+        ;; Start the MCP server
+        (mcp-start)
+        (elisp-dev-mcp-enable)
+        
+        ;; Test with non-existent function
+        (let* ((request 
+                (elisp-dev-mcp-test--create-tool-request
+                 "elisp-describe-function"
+                 `((function . "non-existent-function-xyz"))))
+               (response (elisp-dev-mcp-test--send-request request))
+               (result (assoc-default 'result response)))
+          
+          ;; Verify response has expected structure
+          (should result)
+          (should (assoc-default 'content result))
+          (should (= 1 (length (assoc-default 'content result))))
+          ;; Verify isError flag is true for error response
+          (should (eq (assoc-default 'isError result) t))
+          (let ((text-item (aref (assoc-default 'content result) 0)))
+            (should (string= "text" (assoc-default 'type text-item)))
+            (should (stringp (assoc-default 'text text-item)))
+            (should (string-match-p "Function non-existent-function-xyz is void" 
+                                  (assoc-default 'text text-item))))))
     
     ;; Clean up
     (elisp-dev-mcp-disable)

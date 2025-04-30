@@ -29,9 +29,9 @@ MCP Parameters:
               (let ((standard-output (current-buffer)))
                 (describe-function-1 sym)
                 (buffer-string)))
-          (format "Function %s is void" function)))
+          (mcp-tool-throw (format "Function %s is void" function))))
     (error
-     (format "Error: %S" err))))
+     (mcp-tool-throw (format "Error: %S" err)))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
