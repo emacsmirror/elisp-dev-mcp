@@ -72,6 +72,11 @@ if ! prettier --check ./*.md; then
 	STATUS=1
 fi
 
+echo "Running prettier on GitHub workflows..."
+if ! prettier --check .github/workflows/*.yml; then
+	STATUS=1
+fi
+
 echo "Running shellcheck..."
 if ! shellcheck ./*.sh; then
 	STATUS=1
