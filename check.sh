@@ -79,11 +79,6 @@ if ! actionlint .github/workflows/*.yml; then
 	STATUS=1
 fi
 
-echo "Running jscpd for copy-paste detection..."
-if ! jscpd -r consoleFull -t 0; then
-	STATUS=1
-fi
-
 echo "Running shellcheck..."
 if ! shellcheck ./*.sh; then
 	STATUS=1

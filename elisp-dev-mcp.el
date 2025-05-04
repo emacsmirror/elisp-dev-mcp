@@ -39,7 +39,9 @@ MCP Parameters:
   (mcp-register-tool
    #'elisp-dev-mcp--describe-function
    :id "elisp-describe-function"
-   :description "Get full documentation for an Emacs Lisp function"
+   :description "Get documentation for an Emacs Lisp function or check if it
+exists. Returns function documentation from the current running Emacs
+environment, including all currently loaded packages and libraries."
    :read-only t))
 
 ;;;###autoload
