@@ -83,6 +83,11 @@ VALUE is multiplied by 2."
   (elisp-dev-mcp-test--create-tool-req
    "elisp-get-function-definition" `((function . ,function-name))))
 
+(defun elisp-dev-mcp-test--apropos-req (pattern)
+  "Create a request to call `elisp-apropos` with PATTERN."
+  (elisp-dev-mcp-test--create-tool-req
+   "elisp-apropos" `((pattern . ,pattern))))
+
 (defun elisp-dev-mcp-test--send-req (request)
   "Send REQUEST to the MCP server and return parsed response data."
   (json-read-from-string (mcp-process-jsonrpc request)))
@@ -144,14 +149,16 @@ Returns the text content when validation passes."
 
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
-Returns a cons cell where car is the \"elisp-describe-function\" tool (or nil)
-and cdr is the \"elisp-get-function-definition\" tool (or nil)."
+Returns a list of our registered tools in the order:
+\(describe-function-tool get-definition-tool apropos-tool).
+Any tool not found will be nil in the list."
   (let* ((req (elisp-dev-mcp-test--create-tools-list-req))
          (resp (elisp-dev-mcp-test--send-req req))
          (result (assoc-default 'result resp))
          (tools (assoc-default 'tools result))
          (describe-function-tool nil)
-         (get-definition-tool nil))
+         (get-definition-tool nil)
+         (apropos-tool nil))
 
     ;; Find our tools in the list
     (dotimes (i (length tools))
@@ -161,9 +168,11 @@ and cdr is the \"elisp-get-function-definition\" tool (or nil)."
          ((string= name "elisp-describe-function")
           (setq describe-function-tool tool))
          ((string= name "elisp-get-function-definition")
-          (setq get-definition-tool tool)))))
+          (setq get-definition-tool tool))
+         ((string= name "elisp-apropos")
+          (setq apropos-tool tool)))))
 
-    (cons describe-function-tool get-definition-tool)))
+    (list describe-function-tool get-definition-tool apropos-tool)))
 
 (ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
     ()
@@ -176,16 +185,21 @@ and cdr is the \"elisp-get-function-definition\" tool (or nil)."
 
         ;; Check tool registration
         (let* ((tools (elisp-dev-mcp-test--find-tools-in-tools-list))
-               (describe-function-tool (car tools))
-               (get-definition-tool (cdr tools)))
+               (describe-function-tool (nth 0 tools))
+               (get-definition-tool (nth 1 tools))
+               (apropos-tool (nth 2 tools)))
 
-          ;; Verify both tools are registered
+          ;; Verify all tools are registered
           (should describe-function-tool)
           (should get-definition-tool)
+          (should apropos-tool)
 
-          ;; Verify read-only annotations for both tools
+          ;; Verify read-only annotations for all tools
           (dolist (tool
-                   (list describe-function-tool get-definition-tool))
+                   (list
+                    describe-function-tool
+                    get-definition-tool
+                    apropos-tool))
             (let ((annotations (assoc-default 'annotations tool)))
               (should annotations)
               (should
@@ -197,8 +211,9 @@ and cdr is the \"elisp-get-function-definition\" tool (or nil)."
           ;; Get updated tools list and verify tools are unregistered
           (let ((tools
                  (elisp-dev-mcp-test--find-tools-in-tools-list)))
-            (should-not (car tools)) ;; describe-function should be gone
-            (should-not (cdr tools)) ;; get-definition should be gone
+            (should-not (nth 0 tools)) ;; describe-function should be gone
+            (should-not (nth 1 tools)) ;; get-definition should be gone
+            (should-not (nth 2 tools)) ;; apropos should be gone
             )))
 
     ;; Clean up
@@ -303,6 +318,51 @@ ARG2 is the second argument.
 
 Returns the sum of ARG1 and ARG2.\"
   (+ arg1 arg2))")))))
+
+(ert-deftest elisp-dev-mcp-test-apropos ()
+  "Test that `elisp-apropos' MCP handler works correctly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--apropos-req "buffer-"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed-resp (json-read-from-string text)))
+
+      ;; Verify we have matches
+      (should parsed-resp)
+      (should (arrayp parsed-resp))
+      (should (> (length parsed-resp) 0))
+
+      ;; Verify structure of at least one match
+      (let ((first-match (aref parsed-resp 0)))
+        (should (stringp (assoc-default 'name first-match)))
+        (should (stringp (assoc-default 'type first-match)))
+        (should (stringp (assoc-default 'description first-match)))
+        (should
+         (or (null (assoc-default 'package first-match))
+             (stringp (assoc-default 'package first-match))))))))
+
+(ert-deftest elisp-dev-mcp-test-apropos-no-matches ()
+  "Test that `elisp-apropos' MCP handler handles patterns with no matches."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--apropos-req
+             "xyzzy-not-a-real-function-name"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed-resp (json-read-from-string text)))
+
+      ;; Verify we have an empty array
+      (should parsed-resp)
+      (should (arrayp parsed-resp))
+      (should (= (length parsed-resp) 0)))))
+
+(ert-deftest elisp-dev-mcp-test-apropos-invalid-pattern-type ()
+  "Test that `elisp-apropos' handles non-string pattern properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--apropos-req 123))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid pattern"))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
