@@ -20,14 +20,15 @@ if [ $STATUS -eq 0 ]; then
 	echo "Running elisp-autofmt on Elisp files..."
 	if ! emacs -batch \
 		--eval "(add-to-list 'load-path (expand-file-name \"~/.emacs.d/elpa/mcp/\"))" \
+		--eval "(add-to-list 'load-path (expand-file-name \"~/.emacs.d/elpa/elisp-autofmt-20250421.1112\"))" \
 		--eval "(progn
                      (add-to-list 'load-path \".\")
-                     (when (require 'elisp-autofmt nil t)
-                       (dolist (file '(\"elisp-dev-mcp.el\" \"elisp-dev-mcp-test.el\"))
-                         (message \"Formatting %s...\" file)
-                         (find-file file)
-                         (elisp-autofmt-buffer-to-file)
-                         (message \"Formatted %s\" file))))"; then
+                     (require 'elisp-autofmt)
+                     (dolist (file '(\"elisp-dev-mcp.el\" \"elisp-dev-mcp-test.el\"))
+                       (message \"Formatting %s...\" file)
+                       (find-file file)
+                       (elisp-autofmt-buffer-to-file)
+                       (message \"Formatted %s\" file)))"; then
 		echo "elisp-autofmt failed"
 		STATUS=1
 	fi
@@ -35,11 +36,15 @@ else
 	echo "Skipping automatic formatting due to syntax errors"
 fi
 
+# Remove existing byte-compiled files to avoid warnings about newer source files
+echo "Removing any existing .elc files..."
+rm -f ./*.elc
+
 echo "Running elisp-lint on Emacs Lisp files..."
 if ! emacs -Q --batch \
 	--eval "(package-initialize)" \
 	--eval "(require 'elisp-lint)" \
-	-f elisp-lint-files-batch ./*.el; then
+	-f elisp-lint-files-batch elisp-dev-mcp.el elisp-dev-mcp-test.el; then
 	echo "elisp-lint failed"
 	STATUS=1
 fi
