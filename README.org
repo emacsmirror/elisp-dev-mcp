@@ -46,6 +46,22 @@ M-x mcp-stop
   - =description=: The function's documentation (string)
   - or =error=: Error message if something went wrong (string)
 
+*** Elisp Function Definition
+- Name: =elisp-get-function-definition=
+- Description: Get the source code definition of an Emacs Lisp function
+- Parameters:
+  - =function=: The name of the function to retrieve (string)
+- Returns:
+  - For Elisp functions:
+    - =source=: The function's source code including header comments if present (string)
+    - =file-path=: Path to the file where the function is defined (string)
+    - =start-line=: First line number of the definition including header comments (1-based integer)
+    - =end-line=: Last line number of the definition (1-based integer)
+  - For C-implemented functions:
+    - =is-c-function=: Boolean indicator that this is a C function (always true)
+    - =function-name=: The name of the function (string)
+    - =message=: A message indicating the function is implemented in C source code (string)
+
 * Development
 
 * License

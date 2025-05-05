@@ -19,15 +19,43 @@
 (require 'mcp)
 (require 'elisp-dev-mcp)
 
-(defun elisp-dev-mcp-test--create-tool-request (tool-name arguments)
-  "Create JSON-RPC request to call TOOL-NAME with ARGUMENTS."
-  (json-encode
-   `((jsonrpc . "2.0")
-     (method . "tools/call")
-     (id . 1)
-     (params . ((name . ,tool-name) (arguments . ,arguments))))))
+;;; Test functions used for function definition retrieval tests. Should be the
+;;; first code in the file to keep the test line numbers stable.
 
-(defun elisp-dev-mcp-test--create-tools-list-request ()
+;; This is a header comment that should be included
+;; when extracting the function definition
+(defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
+  "Sample function with a header comment.
+Demonstrates comment extraction capabilities.
+
+ARG1 is the first argument.
+ARG2 is the second argument.
+
+Returns the sum of ARG1 and ARG2."
+  (+ arg1 arg2))
+
+;; This comment is separated by an empty line from the next function and should
+;; not be returned together with it.
+
+(defun elisp-dev-mcp-test--without-header-comment (value)
+  "Simple function without a header comment.
+VALUE is multiplied by 2."
+  (* value 2))
+
+(defmacro elisp-dev-mcp-test-with-server (&rest body)
+  "Execute BODY with running MCP server and elisp-dev-mcp enabled."
+  (declare (indent defun) (debug t))
+  `(unwind-protect
+       (progn
+         (mcp-start)
+         (elisp-dev-mcp-enable)
+         ,@body)
+     (elisp-dev-mcp-disable)
+     (mcp-stop)))
+
+;;; Helpers to create JSON requests
+
+(defun elisp-dev-mcp-test--create-tools-list-req ()
   "Create JSON-RPC request to get list of available tools."
   (json-encode
    `((jsonrpc . "2.0")
@@ -35,133 +63,246 @@
      (id . 1)
      (params . nil))))
 
-(defun elisp-dev-mcp-test--send-request (request)
+(defun elisp-dev-mcp-test--create-tool-req (tool-name arguments)
+  "Create JSON-RPC request to call TOOL-NAME with ARGUMENTS."
+  (json-encode
+   `((jsonrpc . "2.0")
+     (method . "tools/call")
+     (id . 1)
+     (params . ((name . ,tool-name) (arguments . ,arguments))))))
+
+;;; Helpers to create tool call requests
+
+(defun elisp-dev-mcp-test--describe-req (function-name)
+  "Create a request to call `elisp-describe-function` with FUNCTION-NAME."
+  (elisp-dev-mcp-test--create-tool-req
+   "elisp-describe-function" `((function . ,function-name))))
+
+(defun elisp-dev-mcp-test--definition-req (function-name)
+  "Create a request to call `elisp-get-function-definition` with FUNCTION-NAME."
+  (elisp-dev-mcp-test--create-tool-req
+   "elisp-get-function-definition" `((function . ,function-name))))
+
+(defun elisp-dev-mcp-test--send-req (request)
   "Send REQUEST to the MCP server and return parsed response data."
-  (let ((json-object-type 'alist)
-        (json-array-type 'vector)
-        (json-key-type 'symbol)
-        (json-false :json-false)
-        (json-null nil))
-    (json-read-from-string
-     (mcp-process-jsonrpc request))))
+  (json-read-from-string (mcp-process-jsonrpc request)))
 
-(ert-deftest elisp-dev-mcp-test-describe-function ()
-  "Test that `describe-function' MCP handler works correctly."
-  (unwind-protect
-      (progn
-        ;; Start the MCP server
-        (mcp-start)
-        (elisp-dev-mcp-enable)
+;;; Helpers to analyze response JSON
 
-        ;; Test with valid function
-        (let* ((request (elisp-dev-mcp-test--create-tool-request
-                         "elisp-describe-function"
-                         `((function . "defun"))))
-               (response (elisp-dev-mcp-test--send-request request))
-               (result (assoc-default 'result response)))
-          ;; Verify response has expected structure
-          (should result)
-          (should (assoc-default 'content result))
-          (should (= 1 (length (assoc-default 'content result))))
-          ;; Verify isError flag is false for successful response
-          (should (eq (assoc-default 'isError result) :json-false))
-          (let ((text-item (aref (assoc-default 'content result) 0)))
-            (should (string= "text" (assoc-default 'type text-item)))
-            (should (stringp (assoc-default 'text text-item)))
-            (should (string-match-p "defun" (assoc-default 'text text-item))))))
-    ;; Clean up
-    (elisp-dev-mcp-disable)
-    (mcp-stop)))
-
-(defun elisp-dev-mcp-test--verify-error-response (response error-pattern)
-  "Verify that RESPONSE is an error response matching ERROR-PATTERN."
+(defun elisp-dev-mcp-test--check-resp-get-text (response is-error)
+  "Check that RESPONSE has expected structure and extract text.
+If IS-ERROR is non-nil, checks it's an error response, otherwise a success.
+Returns the text content when validation passes."
   (let ((result (assoc-default 'result response)))
-    ;; Verify response has expected structure
     (should result)
     (should (assoc-default 'content result))
     (should (= 1 (length (assoc-default 'content result))))
-    ;; Verify isError flag is true for error response
-    (should (eq (assoc-default 'isError result) t))
+    (should
+     (eq
+      (assoc-default 'isError result)
+      (if is-error
+          t
+        :json-false)))
     (let ((text-item (aref (assoc-default 'content result) 0)))
       (should (string= "text" (assoc-default 'type text-item)))
       (should (stringp (assoc-default 'text text-item)))
-      (should (string-match-p error-pattern (assoc-default 'text text-item))))))
+      (assoc-default 'text text-item))))
+
+(defun elisp-dev-mcp-test--verify-error-resp (response error-pattern)
+  "Verify that RESPONSE is an error response matching ERROR-PATTERN."
+  (should
+   (string-match-p
+    error-pattern
+    (elisp-dev-mcp-test--check-resp-get-text response t))))
+
+;;; Tests
+
+(ert-deftest elisp-dev-mcp-test-describe-function ()
+  "Test that `describe-function' MCP handler works correctly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--describe-req "defun"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      (should (string-match-p "defun" text)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-nonexistent-function ()
   "Test that `describe-function' MCP handler handles non-existent functions."
-  (unwind-protect
-      (progn
-        ;; Start the MCP server
-        (mcp-start)
-        (elisp-dev-mcp-enable)
-
-        ;; Test with non-existent function
-        (let ((request (elisp-dev-mcp-test--create-tool-request
-                        "elisp-describe-function"
-                        `((function . "non-existent-function-xyz"))))
-              (response))
-          (setq response (elisp-dev-mcp-test--send-request request))
-          (elisp-dev-mcp-test--verify-error-response
-           response "Function non-existent-function-xyz is void")))
-
-    ;; Clean up
-    (elisp-dev-mcp-disable)
-    (mcp-stop)))
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req
+             "non-existent-function-xyz"))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Function non-existent-function-xyz is void"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-invalid-function-type ()
   "Test that `describe-function' handles non-string function names properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--describe-req 123))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp resp "Error:"))))
+
+(defun elisp-dev-mcp-test--find-tools-in-tools-list ()
+  "Get the current list of MCP tools as returned by the server.
+Returns a cons cell where car is the \"elisp-describe-function\" tool (or nil)
+and cdr is the \"elisp-get-function-definition\" tool (or nil)."
+  (let* ((req (elisp-dev-mcp-test--create-tools-list-req))
+         (resp (elisp-dev-mcp-test--send-req req))
+         (result (assoc-default 'result resp))
+         (tools (assoc-default 'tools result))
+         (describe-function-tool nil)
+         (get-definition-tool nil))
+
+    ;; Find our tools in the list
+    (dotimes (i (length tools))
+      (let* ((tool (aref tools i))
+             (name (assoc-default 'name tool)))
+        (cond
+         ((string= name "elisp-describe-function")
+          (setq describe-function-tool tool))
+         ((string= name "elisp-get-function-definition")
+          (setq get-definition-tool tool)))))
+
+    (cons describe-function-tool get-definition-tool)))
+
+(ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
+    ()
+  "Test tools registration, annotations, and proper unregistration."
+  ;; First test that tools are properly registered with annotations
   (unwind-protect
       (progn
-        ;; Start the MCP server
         (mcp-start)
         (elisp-dev-mcp-enable)
 
-        ;; Test with non-string function name (a number)
-        (let ((request (elisp-dev-mcp-test--create-tool-request
-                        "elisp-describe-function"
-                        `((function . 123))))
-              (response))
-          (setq response (elisp-dev-mcp-test--send-request request))
-          (elisp-dev-mcp-test--verify-error-response response "Error:")))
+        ;; Check tool registration
+        (let* ((tools (elisp-dev-mcp-test--find-tools-in-tools-list))
+               (describe-function-tool (car tools))
+               (get-definition-tool (cdr tools)))
 
-    ;; Clean up
-    (elisp-dev-mcp-disable)
-    (mcp-stop)))
-
-(ert-deftest elisp-dev-mcp-test-tools-list-read-only ()
-  "Test that tools list includes read-only annotation for `describe-function'."
-  (unwind-protect
-      (progn
-        ;; Start the MCP server
-        (mcp-start)
-        (elisp-dev-mcp-enable)
-
-        ;; Get the list of tools
-        (let* ((request (elisp-dev-mcp-test--create-tools-list-request))
-               (response (elisp-dev-mcp-test--send-request request))
-               (result (assoc-default 'result response))
-               (tools (assoc-default 'tools result))
-               (describe-function-tool nil))
-
-          ;; Find the elisp-describe-function tool
-          (dotimes (i (length tools))
-            (let ((tool (aref tools i)))
-              (when (string= (assoc-default 'name tool)
-                             "elisp-describe-function")
-                (setq describe-function-tool tool))))
-
-          ;; Verify the tool exists
+          ;; Verify both tools are registered
           (should describe-function-tool)
+          (should get-definition-tool)
 
-          ;; Verify it has the read-only annotation set to true
-          (let ((annotations
-                 (assoc-default 'annotations describe-function-tool)))
-            (should annotations)
-            (should (eq (assoc-default 'readOnlyHint annotations) t)))))
+          ;; Verify read-only annotations for both tools
+          (dolist (tool
+                   (list describe-function-tool get-definition-tool))
+            (let ((annotations (assoc-default 'annotations tool)))
+              (should annotations)
+              (should
+               (eq (assoc-default 'readOnlyHint annotations) t))))
+
+          ;; Now test unregistration
+          (elisp-dev-mcp-disable)
+
+          ;; Get updated tools list and verify tools are unregistered
+          (let ((tools
+                 (elisp-dev-mcp-test--find-tools-in-tools-list)))
+            (should-not (car tools)) ;; describe-function should be gone
+            (should-not (cdr tools)) ;; get-definition should be gone
+            )))
 
     ;; Clean up
     (elisp-dev-mcp-disable)
     (mcp-stop)))
+
+(ert-deftest elisp-dev-mcp-test-get-function-definition ()
+  "Test that `elisp-get-function-definition' MCP handler works correctly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--definition-req
+             "elisp-dev-mcp-test--without-header-comment"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed-resp (json-read-from-string text))
+           (source (assoc-default 'source parsed-resp))
+           (file-path (assoc-default 'file-path parsed-resp))
+           (start-line (assoc-default 'start-line parsed-resp))
+           (end-line (assoc-default 'end-line parsed-resp)))
+
+      (should
+       (string=
+        (file-name-nondirectory file-path) "elisp-dev-mcp-test.el"))
+      (should (= start-line 40))
+      (should (= end-line 43))
+      (should
+       (string=
+        source
+        "(defun elisp-dev-mcp-test--without-header-comment (value)
+  \"Simple function without a header comment.
+VALUE is multiplied by 2.\"
+  (* value 2))")))))
+
+(ert-deftest elisp-dev-mcp-test-get-nonexistent-function-definition ()
+  "Test that `elisp-get-function-definition' handles non-existent functions."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--definition-req
+             "non-existent-function-xyz"))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Function non-existent-function-xyz is not found"))))
+
+(ert-deftest elisp-dev-mcp-test-get-function-definition-invalid-type
+    ()
+  "Test that `elisp-get-function-definition' handles non-string names."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--definition-req 123))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid function name"))))
+
+(ert-deftest elisp-dev-mcp-test-get-c-function-definition ()
+  "Test that `elisp-get-function-definition' handles C-implemented functions."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--definition-req "car"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed-resp (json-read-from-string text))
+           (is-c-function (assoc-default 'is-c-function parsed-resp))
+           (function-name (assoc-default 'function-name parsed-resp))
+           (message (assoc-default 'message parsed-resp)))
+
+      (should (eq is-c-function t))
+      (should (string= function-name "car"))
+      (should (stringp message))
+      (should (string-match-p "C source code" message))
+      (should (string-match-p "car" message))
+      (should (string-match-p "elisp-describe-function" message))
+      (should (string-match-p "docstring" message)))))
+
+(ert-deftest elisp-dev-mcp-test-get-function-with-header-comment ()
+  "Test that `elisp-get-function-definition' includes header comments."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--definition-req
+             "elisp-dev-mcp-test--with-header-comment"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed-resp (json-read-from-string text))
+           (source (assoc-default 'source parsed-resp))
+           (file-path (assoc-default 'file-path parsed-resp))
+           (start-line (assoc-default 'start-line parsed-resp))
+           (end-line (assoc-default 'end-line parsed-resp)))
+
+      (should
+       (string=
+        (file-name-nondirectory file-path) "elisp-dev-mcp-test.el"))
+      (should (= start-line 25))
+      (should (= end-line 35))
+      (should
+       (string=
+        source
+        ";; This is a header comment that should be included
+;; when extracting the function definition
+(defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
+  \"Sample function with a header comment.
+Demonstrates comment extraction capabilities.
+
+ARG1 is the first argument.
+ARG2 is the second argument.
+
+Returns the sum of ARG1 and ARG2.\"
+  (+ arg1 arg2))")))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
