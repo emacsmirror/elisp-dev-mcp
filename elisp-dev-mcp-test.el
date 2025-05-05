@@ -55,14 +55,6 @@ VALUE is multiplied by 2."
 
 ;;; Helpers to create JSON requests
 
-(defun elisp-dev-mcp-test--create-tools-list-req ()
-  "Create JSON-RPC request to get list of available tools."
-  (json-encode
-   `((jsonrpc . "2.0")
-     (method . "tools/list")
-     (id . 1)
-     (params . nil))))
-
 (defun elisp-dev-mcp-test--create-tool-req (tool-name arguments)
   "Create JSON-RPC request to call TOOL-NAME with ARGUMENTS."
   (json-encode
@@ -152,7 +144,7 @@ Returns the text content when validation passes."
 Returns a list of our registered tools in the order:
 \(describe-function-tool get-definition-tool apropos-tool).
 Any tool not found will be nil in the list."
-  (let* ((req (elisp-dev-mcp-test--create-tools-list-req))
+  (let* ((req (mcp-create-tools-list-request))
          (resp (elisp-dev-mcp-test--send-req req))
          (result (assoc-default 'result resp))
          (tools (assoc-default 'tools result))
