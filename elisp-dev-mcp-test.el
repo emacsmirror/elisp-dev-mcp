@@ -55,30 +55,22 @@ VALUE is multiplied by 2."
 
 ;;; Helpers to create JSON requests
 
-(defun elisp-dev-mcp-test--create-tool-req (tool-name arguments)
-  "Create JSON-RPC request to call TOOL-NAME with ARGUMENTS."
-  (json-encode
-   `((jsonrpc . "2.0")
-     (method . "tools/call")
-     (id . 1)
-     (params . ((name . ,tool-name) (arguments . ,arguments))))))
-
 ;;; Helpers to create tool call requests
 
 (defun elisp-dev-mcp-test--describe-req (function-name)
   "Create a request to call `elisp-describe-function` with FUNCTION-NAME."
-  (elisp-dev-mcp-test--create-tool-req
-   "elisp-describe-function" `((function . ,function-name))))
+  (mcp-create-tools-call-request
+   "elisp-describe-function" 1 `((function . ,function-name))))
 
 (defun elisp-dev-mcp-test--definition-req (function-name)
   "Create a request to call `elisp-get-function-definition` with FUNCTION-NAME."
-  (elisp-dev-mcp-test--create-tool-req
-   "elisp-get-function-definition" `((function . ,function-name))))
+  (mcp-create-tools-call-request
+   "elisp-get-function-definition" 1 `((function . ,function-name))))
 
 (defun elisp-dev-mcp-test--apropos-req (pattern)
   "Create a request to call `elisp-apropos` with PATTERN."
-  (elisp-dev-mcp-test--create-tool-req
-   "elisp-apropos" `((pattern . ,pattern))))
+  (mcp-create-tools-call-request
+   "elisp-apropos" 1 `((pattern . ,pattern))))
 
 (defun elisp-dev-mcp-test--send-req (request)
   "Send REQUEST to the MCP server and return parsed response data."
