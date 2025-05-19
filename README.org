@@ -30,10 +30,10 @@ Disable the Elisp development MCP tools (unregisters them from MCP server):
 #+end_src
 
 Note: Starting and stopping the MCP server itself is handled by the `mcp` package using interactive commands:
-#+begin_src 
+#+begin_example
 M-x mcp-start
 M-x mcp-stop
-#+end_src
+#+end_example
 
 ** Available MCP Handlers
 
