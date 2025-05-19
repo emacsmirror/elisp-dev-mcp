@@ -1,6 +1,4 @@
 #+TITLE: elisp-dev-mcp: MCP Server for Agentic Elisp Development
-#+AUTHOR: You
-#+DATE: 2024
 
 [[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml/badge.svg]]
 [[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/super-linter.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/super-linter.yml/badge.svg]]
@@ -17,23 +15,15 @@ This package leverages [[https://github.com/laurynas-biveinis/mcp.el][mcp.el]] f
 
 * Usage
 
-** Enabling and Disabling MCP Tools
+** Registering with an MCP Client
 
-Enable the Elisp development MCP tools (registers them with MCP server):
-#+begin_src elisp
-(elisp-dev-mcp-enable)
-#+end_src
+To use =elisp-dev-mcp= with an MCP client like Claude Code, you need to register it using the =emacs-mcp-stdio.sh= script provided by [[https://github.com/laurynas-biveinis/mcp.el][mcp.el]], using =elisp-dev-mcp-enable= and =elisp-dev-mcp-disable= as MCP init and stop functions:
 
-Disable the Elisp development MCP tools (unregisters them from MCP server):
-#+begin_src elisp
-(elisp-dev-mcp-disable)
-#+end_src
-
-Note: Starting and stopping the MCP server itself is handled by the `mcp` package using interactive commands:
 #+begin_example
-M-x mcp-start
-M-x mcp-stop
+claude mcp add -s user -t stdio elisp-dev -- $HOME/.emacs.d/elpa/mcp.el/emacs-mcp-stdio.sh --init-function=elisp-dev-mcp-enable --stop-function=elisp-dev-mcp-disable
 #+end_example
+
+Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. Stop it with =M-x mcp-stop= when done.
 
 ** Available MCP Handlers
 
@@ -62,6 +52,7 @@ M-x mcp-stop
     - =function-name=: The name of the function (string)
     - =message=: A message indicating the function is implemented in C source code (string)
 
-* Development
-
 * License
+
+This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the LICENSE file for details.
+
