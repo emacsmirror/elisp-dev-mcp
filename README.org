@@ -61,17 +61,6 @@ M-x mcp-stop
     - =is-c-function=: Boolean indicator that this is a C function (always true)
     - =function-name=: The name of the function (string)
     - =message=: A message indicating the function is implemented in C source code (string)
-    
-*** Elisp Apropos
-- Name: =elisp-apropos=
-- Description: Searches for Elisp functions, variables, and features that match a specified pattern
-- Parameters:
-  - =pattern=: A search pattern (regex or string) to match against symbol names and documentation (string)
-- Returns:
-  - An array of matches, where each match is an object containing:
-    - =name=: Symbol name (string)
-    - =type=: Type of symbol ("function", "command", "variable", "feature", or "symbol") (string)
-    - =description=: Brief description from documentation (string)
 
 * Development
 

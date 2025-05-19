@@ -16,7 +16,6 @@
 
 (require 'mcp)
 (require 'help-fns)
-(require 'apropos)
 
 (defun elisp-dev-mcp--describe-function (function)
   "Get full documentation for Emacs Lisp FUNCTION.
@@ -134,76 +133,13 @@ currently loaded packages and libraries."
 comments. Returns source code with file path and 1-based line numbers. For
 functions defined in C, returns a suggestion to call elisp-describe-function
 tool instead."
-   :read-only t)
-  (mcp-register-tool
-   #'elisp-dev-mcp--apropos
-   :id "elisp-apropos"
-   :description
-   "Searches for Elisp functions, variables, and features matching a pattern.
-Helps discover relevant Elisp capabilities for a given task."
    :read-only t))
 
 ;;;###autoload
 (defun elisp-dev-mcp-disable ()
   "Disable the Elisp development MCP tools."
   (mcp-unregister-tool "elisp-describe-function")
-  (mcp-unregister-tool "elisp-get-function-definition")
-  (mcp-unregister-tool "elisp-apropos"))
-
-(defun elisp-dev-mcp--apropos (pattern)
-  "Search for Elisp symbols matching PATTERN.
-
-MCP Parameters:
-  pattern - A search pattern (regex or string) to match against symbol names"
-  (unless (stringp pattern)
-    (mcp-tool-throw "Invalid pattern"))
-
-  (let ((matches nil))
-    (with-temp-buffer
-      ;; Create a temporary buffer to capture apropos output
-      (let ((standard-output (current-buffer)))
-        ;; Run apropos with the pattern to search for symbols
-        (apropos-command pattern)
-
-        ;; Parse the results from the apropos output buffer
-        (goto-char (point-min))
-
-        ;; Loop through each match
-        (while (re-search-forward "^\\([^ \t\n]+\\)[ \t]+" nil t)
-          (let* ((sym-name (match-string 1))
-                 (sym (intern-soft sym-name))
-                 (sym-type
-                  (cond
-                   ((commandp sym)
-                    "command")
-                   ((functionp sym)
-                    "function")
-                   ((boundp sym)
-                    "variable")
-                   ((featurep sym)
-                    "feature")
-                   (t
-                    "symbol")))
-                 (doc nil))
-
-            ;; Get documentation (first line only)
-            (when (re-search-forward "\\(.+\\)$"
-                                     (line-end-position)
-                                     t)
-              (setq doc (match-string 1)))
-
-            ;; Add this match to our results
-            (push (list
-                   (cons 'name sym-name)
-                   (cons 'type sym-type)
-                   (cons 'description (or doc "")))
-                  matches)))))
-
-    ;; Return matches as JSON - ensure empty list becomes "[]" not "null"
-    (json-encode
-     (if matches
-         (nreverse matches)
-       '[]))))
+  (mcp-unregister-tool "elisp-get-function-definition"))
 
 (provide 'elisp-dev-mcp)
 ;;; elisp-dev-mcp.el ends here
