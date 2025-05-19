@@ -147,7 +147,7 @@ if $EMACS --eval "(require 'org)" --eval "(require 'org-lint)" \
                      (message \"Found issues in %s: %S\" file results)
                      (setq all-checks-passed nil)))))
              (unless all-checks-passed (kill-emacs 1)))"; then
-    echo "OK!"
+	echo "OK!"
 else
 	echo "org files check failed"
 	ERRORS=$((ERRORS + 1))
