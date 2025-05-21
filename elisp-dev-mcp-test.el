@@ -143,6 +143,15 @@ Returns the text content when validation passes."
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function user-emacs-directory is void"))))
 
+(ert-deftest elisp-dev-mcp-test-describe-macro ()
+  "Test that `describe-function' MCP handler works correctly with macros."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--describe-req "when"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      (should (string-match-p "when" text))
+      (should (string-match-p "macro" text)))))
+
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
