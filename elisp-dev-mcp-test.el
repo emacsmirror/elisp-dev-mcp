@@ -470,5 +470,24 @@ D captures remaining arguments."
         (file-name-nondirectory file-path)
         "elisp-dev-mcp-test.el")))))
 
+(ert-deftest elisp-dev-mcp-test-get-special-form-definition ()
+  "Test that `elisp-get-function-definition' handles special forms correctly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--definition-req "if"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed-resp (json-read-from-string text))
+           (is-c-function (assoc-default 'is-c-function parsed-resp))
+           (function-name (assoc-default 'function-name parsed-resp))
+           (message (assoc-default 'message parsed-resp)))
+
+      (should (eq is-c-function t))
+      (should (string= function-name "if"))
+      (should (stringp message))
+      (should (string-match-p "C source code" message))
+      (should (string-match-p "if" message))
+      (should (string-match-p "elisp-describe-function" message))
+      (should (string-match-p "docstring" message)))))
+
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
