@@ -29,4 +29,5 @@ jobs:
         uses: super-linter/super-linter/slim@v6.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: main
           VALIDATE_GIT_COMMITLINT: false
