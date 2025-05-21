@@ -333,5 +333,84 @@ ARG2 is the second argument.
 Returns the sum of ARG1 and ARG2.\"
   (+ arg1 arg2))")))))
 
+(ert-deftest elisp-dev-mcp-test-get-interactively-defined-function ()
+  "Test interactively defined functions with get-function-definition."
+  (elisp-dev-mcp-test-with-server
+    ;; Define a function interactively (not from a file)
+    (let* ((test-function-name
+            "elisp-dev-mcp-test--interactive-function")
+           (sym (intern test-function-name)))
+      (unwind-protect
+          (progn
+            ;; Define the test function
+            (eval
+             `(defun ,sym ()
+                "An interactively defined function with no file location."
+                'interactive-result))
+
+            ;; Now try to get its definition
+            (let* ((req
+                    (elisp-dev-mcp-test--definition-req
+                     test-function-name))
+                   (resp (elisp-dev-mcp-test--send-req req))
+                   (text
+                    (elisp-dev-mcp-test--check-resp-get-text
+                     resp nil))
+                   (parsed-resp (json-read-from-string text))
+                   (source (assoc-default 'source parsed-resp))
+                   (file-path (assoc-default 'file-path parsed-resp)))
+
+              ;; Verify that we get a definition back, not an error
+              (should source)
+              (should (string-match-p "defun" source))
+              (should (string-match-p test-function-name source))
+              (should (string-match-p "interactive" file-path))))
+
+        ;; Clean up - remove the test function
+        (fmakunbound sym)))))
+
+(ert-deftest elisp-dev-mcp-test-get-interactive-function-with-args ()
+  "Test interactively defined functions with complex args."
+  (elisp-dev-mcp-test-with-server
+    ;; Define a function interactively with special parameter specifiers
+    (let* ((test-function-name
+            "elisp-dev-mcp-test--interactive-complex-args")
+           (sym (intern test-function-name)))
+      (unwind-protect
+          (progn
+            ;; Define the test function
+            (eval
+             `(defun ,sym (a b &optional c &rest d)
+                "A function with complex argument list.
+A and B are required arguments.
+C is optional.
+D captures remaining arguments."
+                (list a b c d)))
+
+            ;; Now try to get its definition
+            (let* ((req
+                    (elisp-dev-mcp-test--definition-req
+                     test-function-name))
+                   (resp (elisp-dev-mcp-test--send-req req))
+                   (text
+                    (elisp-dev-mcp-test--check-resp-get-text
+                     resp nil))
+                   (parsed-resp (json-read-from-string text))
+                   (source (assoc-default 'source parsed-resp))
+                   (file-path (assoc-default 'file-path parsed-resp)))
+
+              ;; Verify that we get a definition back with correct argument list
+              (should source)
+              (should (string-match-p "defun" source))
+              (should (string-match-p test-function-name source))
+              (should
+               (string-match-p "(a b &optional c &rest d)" source))
+              (should (string-match-p "list a b c d" source))
+              (should (string-match-p "A and B are required" source))
+              (should (string-match-p "interactive" file-path))))
+
+        ;; Clean up - remove the test function
+        (fmakunbound sym)))))
+
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here

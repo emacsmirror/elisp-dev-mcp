@@ -16,6 +16,7 @@
 
 (require 'mcp)
 (require 'help-fns)
+(require 'pp)
 
 (defun elisp-dev-mcp--describe-function (function)
   "Get full documentation for Emacs Lisp FUNCTION.
@@ -57,62 +58,102 @@ Use elisp-describe-function tool to get its docstring."
 
       ;; Regular Elisp function handling
       (let ((func-file (find-lisp-object-file-name sym 'defun)))
-        (unless func-file
-          (mcp-tool-throw
-           (format "Could not determine file for function %s"
-                   function)))
-        (with-temp-buffer
-          (insert-file-contents func-file)
-          (goto-char (point-min))
-          (let ((def-pos
-                 (find-function-search-for-symbol sym nil func-file)))
-            (unless def-pos
-              (mcp-tool-throw
-               (format "Could not locate definition for %s"
-                       function)))
-            (goto-char (cdr def-pos))
-            ;; Get function definition with any header comments
-            (let* ((func-point (point))
-                   (func-line (line-number-at-pos))
-                   (start-point func-point)
-                   (start-line func-line)
-                   (end-line nil)
-                   (source nil))
+        (if (not func-file)
+            ;; Handle interactively defined functions with no source file
+            (let*
+                ((fn (symbol-function sym))
+                 (args (help-function-arglist sym t))
+                 (doc (or (documentation sym) ""))
+                 (body
+                  (and (functionp fn)
+                       (nthcdr
+                        (if doc
+                            3
+                          2)
+                        fn)))
+                 ;; Format args list as a string
+                 (args-str
+                  (if args
+                      (format " %s" (prin1-to-string args))
+                    " ()"))
+                 ;; Use pp for prettier formatting of the decompiled function
+                 (func-def
+                  (with-temp-buffer
+                    ;; Start the defun with proper args
+                    (insert "(defun " function args-str)
+                    ;; Add the docstring
+                    (when doc
+                      (insert "\n  " (prin1-to-string doc)))
+                    ;; Add the body with proper formatting
+                    (if body
+                        (dolist (expr body)
+                          (insert "\n  " (pp-to-string expr)))
+                      ;; Fallback if body extraction failed
+                      (insert "\n  'body"))
+                    ;; Close the defun
+                    (insert ")")
+                    (buffer-string))))
 
-              ;; Go back to search for comments
-              (beginning-of-line)
-              (forward-line -1) ;; Check line above function
-
-              ;; If this is a comment line, it's part of the header comment
-              (when (looking-at "^[ \t]*;;")
-
-                ;; Find first line of the consecutive comment block
-                (while (and (looking-at "^[ \t]*;;")
-                            (> (forward-line -1) -1)))
-
-                ;; We went one line too far back
-                (forward-line 1)
-
-                ;; Update start point to include header comments
-                (setq start-point (point))
-                (setq start-line (line-number-at-pos)))
-
-              ;; Return to function start point to process the definition
-              (goto-char func-point)
-              (forward-sexp)
-              (setq end-line (line-number-at-pos))
-
-              ;; Extract the source code including any header comments
-              (setq source
-                    (buffer-substring-no-properties
-                     start-point (point)))
-
-              ;; Return the result
               (json-encode
-               `((source . ,source)
-                 (file-path . ,func-file)
-                 (start-line . ,start-line)
-                 (end-line . ,end-line))))))))))
+               `((source . ,func-def)
+                 (file-path . "<interactively defined>")
+                 (start-line . 1)
+                 (end-line . 1))))
+
+          ;; Functions with source file
+          (with-temp-buffer
+            (insert-file-contents func-file)
+            (goto-char (point-min))
+            (let ((def-pos
+                   (find-function-search-for-symbol
+                    sym nil func-file)))
+              (unless def-pos
+                (mcp-tool-throw
+                 (format "Could not locate definition for %s"
+                         function)))
+              (goto-char (cdr def-pos))
+              ;; Get function definition with any header comments
+              (let* ((func-point (point))
+                     (func-line (line-number-at-pos))
+                     (start-point func-point)
+                     (start-line func-line)
+                     (end-line nil)
+                     (source nil))
+
+                ;; Go back to search for comments
+                (beginning-of-line)
+                (forward-line -1) ;; Check line above function
+
+                ;; If this is a comment line, it's part of the header comment
+                (when (looking-at "^[ \t]*;;")
+
+                  ;; Find first line of the consecutive comment block
+                  (while (and (looking-at "^[ \t]*;;")
+                              (> (forward-line -1) -1)))
+
+                  ;; We went one line too far back
+                  (forward-line 1)
+
+                  ;; Update start point to include header comments
+                  (setq start-point (point))
+                  (setq start-line (line-number-at-pos)))
+
+                ;; Return to function start point to process the definition
+                (goto-char func-point)
+                (forward-sexp)
+                (setq end-line (line-number-at-pos))
+
+                ;; Extract the source code including any header comments
+                (setq source
+                      (buffer-substring-no-properties
+                       start-point (point)))
+
+                ;; Return the result
+                (json-encode
+                 `((source . ,source)
+                   (file-path . ,func-file)
+                   (start-line . ,start-line)
+                   (end-line . ,end-line)))))))))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
