@@ -134,6 +134,15 @@ Returns the text content when validation passes."
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function  is void"))))
 
+(ert-deftest elisp-dev-mcp-test-describe-variable-as-function ()
+  "Test that `describe-function' MCP handler handles variable names properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req "user-emacs-directory"))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Function user-emacs-directory is void"))))
+
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
