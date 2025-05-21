@@ -42,6 +42,12 @@ Returns the sum of ARG1 and ARG2."
 VALUE is multiplied by 2."
   (* value 2))
 
+;; An inline function for testing describe-function with defsubst
+(defsubst elisp-dev-mcp-test--inline-function (x)
+  "An inline function for testing purposes.
+X is the input value that will be doubled."
+  (* 2 x))
+
 (defmacro elisp-dev-mcp-test-with-server (&rest body)
   "Execute BODY with running MCP server and elisp-dev-mcp enabled."
   (declare (indent defun) (debug t))
@@ -151,6 +157,18 @@ Returns the text content when validation passes."
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
       (should (string-match-p "when" text))
       (should (string-match-p "macro" text)))))
+
+(ert-deftest elisp-dev-mcp-test-describe-inline-function ()
+  "Test that `describe-function' MCP handler works with inline functions."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req
+             "elisp-dev-mcp-test--inline-function"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      (should
+       (string-match-p "elisp-dev-mcp-test--inline-function" text))
+      (should (string-match-p "inline" text)))))
 
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
