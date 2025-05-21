@@ -33,6 +33,37 @@ MCP Parameters:
           (mcp-tool-throw (format "Function %s is void" function))))
     (error (mcp-tool-throw (format "Error: %S" err)))))
 
+(defun elisp-dev-mcp--process-alias-source
+    (source function aliased-to file-path start-line end-line)
+  "Post-process SOURCE for function aliases to return a useful defalias form.
+If source is just a quoted symbol, replace it with a synthetic defalias form.
+Returns a JSON encoded response with enhanced alias information.
+
+FUNCTION is the alias function name.
+ALIASED-TO is the target function name.
+FILE-PATH, START-LINE, and END-LINE specify source location information."
+  (let ((doc (or (documentation (intern-soft function)) "")))
+    (if (and source
+             (string-match-p (format "['']%s\\>" function) source)
+             (not (string-match-p "defalias" source)))
+        ;; Generate synthetic defalias form
+        (let ((func-def
+               (format "(defalias '%s #'%s %S)"
+                       function
+                       aliased-to
+                       doc)))
+          (json-encode
+           `((source . ,func-def)
+             (file-path . ,file-path)
+             (start-line . ,start-line)
+             (end-line . ,end-line))))
+      ;; Pass through original source
+      (json-encode
+       `((source . ,source)
+         (file-path . ,file-path)
+         (start-line . ,start-line)
+         (end-line . ,end-line))))))
+
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
 
@@ -40,12 +71,15 @@ MCP Parameters:
   function - The name of the function to retrieve"
   (unless (stringp function)
     (mcp-tool-throw "Invalid function name"))
-  (let ((sym (intern-soft function)))
+  (let* ((sym (intern-soft function))
+         (fn (and sym (fboundp sym) (symbol-function sym)))
+         (is-alias (symbolp fn))
+         (aliased-to (and is-alias (symbol-name fn))))
     (unless (and sym (fboundp sym))
       (mcp-tool-throw (format "Function %s is not found" function)))
 
     ;; Special handling for C-implemented functions (subrp)
-    (if (subrp (symbol-function sym))
+    (if (subrp fn)
         (json-encode
          `((is-c-function . t)
            (function-name . ,function)
@@ -60,45 +94,49 @@ Use elisp-describe-function tool to get its docstring."
       (let ((func-file (find-lisp-object-file-name sym 'defun)))
         (if (not func-file)
             ;; Handle interactively defined functions with no source file
-            (let*
-                ((fn (symbol-function sym))
-                 (args (help-function-arglist sym t))
-                 (doc (or (documentation sym) ""))
-                 (body
-                  (and (functionp fn)
-                       (nthcdr
-                        (if doc
-                            3
-                          2)
-                        fn)))
-                 ;; Format args list as a string
-                 (args-str
-                  (if args
-                      (format " %s" (prin1-to-string args))
-                    " ()"))
-                 ;; Use pp for prettier formatting of the decompiled function
-                 (func-def
-                  (with-temp-buffer
-                    ;; Start the defun with proper args
-                    (insert "(defun " function args-str)
-                    ;; Add the docstring
-                    (when doc
-                      (insert "\n  " (prin1-to-string doc)))
-                    ;; Add the body with proper formatting
-                    (if body
-                        (dolist (expr body)
-                          (insert "\n  " (pp-to-string expr)))
-                      ;; Fallback if body extraction failed
-                      (insert "\n  'body"))
-                    ;; Close the defun
-                    (insert ")")
-                    (buffer-string))))
-
-              (json-encode
-               `((source . ,func-def)
-                 (file-path . "<interactively defined>")
-                 (start-line . 1)
-                 (end-line . 1))))
+            (if is-alias
+                ;; For aliases, create a synthetic defalias form
+                (elisp-dev-mcp--process-alias-source
+                 (format "'%s" function) ; create minimal source
+                 function aliased-to "<interactively defined>" 1 1)
+              ;; Regular interactively defined functions
+              (let*
+                  ((args (help-function-arglist sym t))
+                   (doc (or (documentation sym) ""))
+                   (body
+                    (and (functionp fn)
+                         (nthcdr
+                          (if doc
+                              3
+                            2)
+                          fn)))
+                   ;; Format args list as a string
+                   (args-str
+                    (if args
+                        (format " %s" (prin1-to-string args))
+                      " ()"))
+                   ;; Use pp for prettier formatting of the decompiled function
+                   (func-def
+                    (with-temp-buffer
+                      ;; Start the defun with proper args
+                      (insert "(defun " function args-str)
+                      ;; Add the docstring
+                      (when doc
+                        (insert "\n  " (prin1-to-string doc)))
+                      ;; Add the body with proper formatting
+                      (if body
+                          (dolist (expr body)
+                            (insert "\n  " (pp-to-string expr)))
+                        ;; Fallback if body extraction failed
+                        (insert "\n  'body"))
+                      ;; Close the defun
+                      (insert ")")
+                      (buffer-string))))
+                (json-encode
+                 `((source . ,func-def)
+                   (file-path . "<interactively defined>")
+                   (start-line . 1)
+                   (end-line . 1)))))
 
           ;; Functions with source file
           (with-temp-buffer
@@ -148,12 +186,20 @@ Use elisp-describe-function tool to get its docstring."
                       (buffer-substring-no-properties
                        start-point (point)))
 
-                ;; Return the result
-                (json-encode
-                 `((source . ,source)
-                   (file-path . ,func-file)
-                   (start-line . ,start-line)
-                   (end-line . ,end-line)))))))))))
+                ;; Return the result, with special handling for aliases
+                (if is-alias
+                    (elisp-dev-mcp--process-alias-source
+                     source
+                     function
+                     aliased-to
+                     func-file
+                     start-line
+                     end-line)
+                  (json-encode
+                   `((source . ,source)
+                     (file-path . ,func-file)
+                     (start-line . ,start-line)
+                     (end-line . ,end-line))))))))))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()

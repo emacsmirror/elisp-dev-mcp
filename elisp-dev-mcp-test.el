@@ -48,6 +48,11 @@ VALUE is multiplied by 2."
 X is the input value that will be doubled."
   (* 2 x))
 
+(defalias
+  'elisp-dev-mcp-test--aliased-function
+  #'elisp-dev-mcp-test--with-header-comment
+  "This is an alias for elisp-dev-mcp-test--with-header-comment.")
+
 (defmacro elisp-dev-mcp-test-with-server (&rest body)
   "Execute BODY with running MCP server and elisp-dev-mcp enabled."
   (declare (indent defun) (debug t))
@@ -411,6 +416,59 @@ D captures remaining arguments."
 
         ;; Clean up - remove the test function
         (fmakunbound sym)))))
+
+(ert-deftest elisp-dev-mcp-test-describe-function-alias ()
+  "Test that `describe-function' MCP handler works with function aliases."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req
+             "elisp-dev-mcp-test--aliased-function"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+
+      ;; Should indicate it's an alias
+      (should (string-match-p "alias" text))
+
+      ;; Should mention the original function
+      (should
+       (string-match-p
+        "elisp-dev-mcp-test--with-header-comment" text))
+
+      ;; Should include the custom docstring of the alias
+      (should (string-match-p "This is an alias for" text)))))
+
+(ert-deftest elisp-dev-mcp-test-get-function-definition-alias ()
+  "Test that `elisp-get-function-definition' works with function aliases."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--definition-req
+             "elisp-dev-mcp-test--aliased-function"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed-resp (json-read-from-string text))
+           (source (assoc-default 'source parsed-resp))
+           (file-path (assoc-default 'file-path parsed-resp)))
+
+
+      ;; The source should include a complete defalias form with all components:
+      ;; 1. The defalias keyword
+      (should (string-match-p "defalias" source))
+      ;; 2. The alias function name (quoted)
+      (should
+       (string-match-p
+        "'elisp-dev-mcp-test--aliased-function" source))
+      ;; 3. The target function name (quoted with hash)
+      (should
+       (string-match-p
+        "#'elisp-dev-mcp-test--with-header-comment" source))
+      ;; 4. The docstring (important component)
+      (should (string-match-p "\"This is an alias for" source))
+
+      ;; Verify file path is correct
+      (should
+       (string=
+        (file-name-nondirectory file-path)
+        "elisp-dev-mcp-test.el")))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
