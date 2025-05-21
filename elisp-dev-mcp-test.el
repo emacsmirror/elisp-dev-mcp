@@ -1,6 +1,6 @@
 ;;; elisp-dev-mcp-test.el --- Tests for elisp-dev-mcp -*- lexical-binding: t -*-
 
-;; Copyright (C) 2024
+;; Copyright (C) 2025 Laurynas Biveinis
 
 ;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
@@ -125,6 +125,14 @@ Returns the text content when validation passes."
     (let* ((req (elisp-dev-mcp-test--describe-req 123))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp resp "Error:"))))
+
+(ert-deftest elisp-dev-mcp-test-describe-empty-string-function ()
+  "Test that `describe-function' MCP handler handles empty string properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--describe-req ""))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Function  is void"))))
 
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
