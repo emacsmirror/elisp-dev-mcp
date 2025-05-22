@@ -101,15 +101,26 @@ Use elisp-describe-function tool to get its docstring."
                  function aliased-to "<interactively defined>" 1 1)
               ;; Regular interactively defined functions
               (let*
-                  ((args (help-function-arglist sym t))
+                  ( ;; DEBUG: Check Emacs version and function structure
+                   (emacs-version-major
+                    (string-to-number
+                     (car (split-string emacs-version "\\."))))
+                   (debug-msg
+                    (format
+                     "DEBUG: Emacs %s, function %s, fn type: %s, fn value: %S"
+                     emacs-version function (type-of fn) fn))
+                   (args (help-function-arglist sym t))
                    (doc (or (documentation sym) ""))
                    (body
-                    (and (functionp fn)
-                         (nthcdr
-                          (if doc
-                              3
-                            2)
-                          fn)))
+                    (progn
+                      ;; Print debug info to *Messages*
+                      (message "%s" debug-msg)
+                      (and (functionp fn)
+                           (nthcdr
+                            (if doc
+                                3
+                              2)
+                            fn))))
                    ;; Format args list as a string
                    (args-str
                     (if args
