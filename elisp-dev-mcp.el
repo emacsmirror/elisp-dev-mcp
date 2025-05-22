@@ -102,9 +102,6 @@ Use elisp-describe-function tool to get its docstring."
               ;; Regular interactively defined functions
               (let*
                   ( ;; DEBUG: Check Emacs version and function structure
-                   (emacs-version-major
-                    (string-to-number
-                     (car (split-string emacs-version "\\."))))
                    (debug-msg
                     (format
                      "DEBUG: Emacs %s, function %s, fn type: %s, fn value: %S"
