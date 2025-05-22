@@ -112,12 +112,24 @@ Use elisp-describe-function tool to get its docstring."
                     (progn
                       ;; Print debug info to *Messages*
                       (message "%s" debug-msg)
-                      (and (functionp fn)
-                           (nthcdr
-                            (if doc
-                                3
-                              2)
-                            fn))))
+                      (and
+                       (functionp fn)
+                       (cond
+                        ;; Emacs 30+ interpreted-function objects
+                        ((eq (type-of fn) 'interpreted-function)
+                         ;; Extract body from interpreted-function
+                         ;; Format: #[args body env bytecode doc]
+                         (aref fn 1))
+                        ;; Emacs 29 and earlier cons-based functions
+                        ((consp fn)
+                         (nthcdr
+                          (if doc
+                              3
+                            2)
+                          fn))
+                        ;; Fallback for other types
+                        (t
+                         nil)))))
                    ;; Format args list as a string
                    (args-str
                     (if args
