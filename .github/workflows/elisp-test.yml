@@ -55,6 +55,8 @@ jobs:
 
       - name: Run tests
         run: |
+          # Remove any byte-compiled files to ensure tests run against source
+          rm -f ./*.elc
           emacs -Q --batch \
                 --eval "(package-initialize)" \
                 --eval "(require 'mcp)" \
