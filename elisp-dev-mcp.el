@@ -77,25 +77,28 @@ Use elisp-describe-function tool to get its docstring."
 
 (defun elisp-dev-mcp--extract-function-body (fn has-doc)
   "Extract body from function object FN.
-HAS-DOC indicates whether the function has a docstring."
-  (cond
-   ;; Emacs 30+ interpreted-function objects
-   ((eq (type-of fn) 'interpreted-function)
-    ;; Extract body from interpreted-function
-    ;; Format: #[args body env bytecode doc]
-    (aref fn 1))
-   ;; Emacs 29 and earlier cons-based functions
-   ((consp fn)
-    (nthcdr
-     (if has-doc
-         3
-       2)
-     fn))
-   ;; Fallback for other types
-   (t
-    (mcp-tool-throw
-     (format "Don't know how to extract body from function type: %s"
-             (type-of fn))))))
+HAS-DOC indicates whether the function has a docstring.
+Returns nil if FN is not a function."
+  (if (not (functionp fn))
+      nil
+    (cond
+     ;; Emacs 30+ interpreted-function objects
+     ((eq (type-of fn) 'interpreted-function)
+      ;; Extract body from interpreted-function
+      ;; Format: #[args body env bytecode doc]
+      (aref fn 1))
+     ;; Emacs 29 and earlier cons-based functions
+     ((consp fn)
+      (nthcdr
+       (if has-doc
+           3
+         2)
+       fn))
+     ;; Fallback for other types
+     (t
+      (mcp-tool-throw
+       (format "Don't know how to extract body from function type: %s"
+               (type-of fn)))))))
 
 (defun elisp-dev-mcp--reconstruct-function-definition
     (fn-name args doc body)
@@ -153,9 +156,7 @@ MCP Parameters:
               (let* ((args (help-function-arglist sym t))
                      (doc (or (documentation sym) ""))
                      (body
-                      (and (functionp fn)
-                           (elisp-dev-mcp--extract-function-body
-                            fn doc)))
+                      (elisp-dev-mcp--extract-function-body fn doc))
                      (func-def
                       (elisp-dev-mcp--reconstruct-function-definition
                        function args doc body)))
