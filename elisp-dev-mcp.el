@@ -251,7 +251,24 @@ MCP Parameters:
    :description
    "Get documentation for an Emacs Lisp function or check if it exists. Returns
 function documentation from the current running Emacs environment, including all
-currently loaded packages and libraries."
+currently loaded packages and libraries.
+
+Supports:
+- Regular functions (defun), macros (defmacro), inline functions (defsubst)
+- Function aliases (shows both alias info and target function docs)
+- Built-in C functions (subr)
+- Byte-compiled functions
+- Functions with or without documentation
+
+Returns formatted documentation including:
+- Function signature with argument names
+- Full docstring with parameter descriptions
+- Source file location
+- Function type (closure, macro, subr, etc.)
+
+Error cases:
+- Non-existent functions return 'Function X is void'
+- Invalid input types return 'Error: ...'"
    :read-only t)
   (mcp-register-tool
    #'elisp-dev-mcp--get-function-definition
@@ -260,7 +277,28 @@ currently loaded packages and libraries."
    "Get the source code definition of an Emacs Lisp function with any header
 comments. Returns source code with file path and 1-based line numbers. For
 functions defined in C, returns a suggestion to call elisp-describe-function
-tool instead."
+tool instead.
+
+Returns JSON with:
+- source: Complete function definition including header comments (;; above defun)
+- file-path: Absolute path to source file or '<interactively defined>'
+- start-line: Line number where definition starts (1-based)
+- end-line: Line number where definition ends
+
+Special handling:
+- Function aliases: Returns the defalias form with docstring
+- C functions: Returns is-c-function=true with suggestion message
+- Interactive functions: Reconstructs defun from runtime representation
+- Byte-compiled functions: Retrieves original source if available
+
+Error cases:
+- Non-existent functions return 'Function X is not found'
+- Non-string input returns 'Invalid function name'
+
+Use this tool when you need to:
+- View or analyze function implementation
+- Extract function source for modification
+- Understand function structure with comments"
    :read-only t))
 
 ;;;###autoload
