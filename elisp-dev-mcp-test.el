@@ -850,8 +850,8 @@ X and Y are dynamically scoped arguments."
                (string=
                 (file-name-nondirectory file-path)
                 "elisp-dev-mcp-test-bytecode.el"))
-              (should (= start-line 5))
-              (should (= end-line 10))
+              (should (= start-line 20))
+              (should (= end-line 25))
               (should (string-match-p ";; Header comment" source))
               (should
                (string-match-p ";; This should be preserved" source))

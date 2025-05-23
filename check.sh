@@ -40,7 +40,7 @@
 
 set -eu -o pipefail
 
-readonly ELISP_FILES="\"elisp-dev-mcp.el\" \"elisp-dev-mcp-test.el\" \"elisp-dev-mcp-test-no-checkdoc.el\" \"elisp-dev-mcp-test-dynamic.el\""
+readonly ELISP_FILES="\"elisp-dev-mcp.el\" \"elisp-dev-mcp-test.el\" \"elisp-dev-mcp-test-no-checkdoc.el\" \"elisp-dev-mcp-test-dynamic.el\" \"elisp-dev-mcp-test-bytecode.el\""
 readonly ORG_FILES='"README.org"'
 readonly SHELL_FILES=(check.sh)
 
