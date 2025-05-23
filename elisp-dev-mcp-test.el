@@ -468,5 +468,14 @@ D captures remaining arguments."
       (should (string-match-p "elisp-describe-function" message))
       (should (string-match-p "docstring" message)))))
 
+(ert-deftest elisp-dev-mcp-test-get-empty-string-function-definition
+    ()
+  "Test that `elisp-get-function-definition' handles empty string properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--definition-req ""))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Function  is not found"))))
+
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
