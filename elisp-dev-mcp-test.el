@@ -477,5 +477,13 @@ D captures remaining arguments."
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function  is not found"))))
 
+(ert-deftest elisp-dev-mcp-test-get-variable-as-function-definition ()
+  "Test that `elisp-get-function-definition' handles variable names properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req (elisp-dev-mcp-test--definition-req "load-path"))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Function load-path is not found"))))
+
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
