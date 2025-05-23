@@ -40,7 +40,7 @@
 
 set -eu -o pipefail
 
-readonly ELISP_FILES="\"elisp-dev-mcp.el\" \"elisp-dev-mcp-test.el\""
+readonly ELISP_FILES="\"elisp-dev-mcp.el\" \"elisp-dev-mcp-test.el\" \"elisp-dev-mcp-test-no-checkdoc.el\""
 readonly ORG_FILES='"README.org"'
 readonly SHELL_FILES=(check.sh)
 
@@ -115,6 +115,9 @@ if [ $ERRORS -eq 0 ]; then
 else
 	echo "Skipping elisp-lint due to previous errors"
 fi
+
+# Remove byte-compiled files after elisp-lint
+rm -f ./*.elc
 
 # Only run ERT tests if there are no Elisp syntax errors
 if [ $ELISP_SYNTAX_FAILED -eq 0 ]; then

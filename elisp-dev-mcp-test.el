@@ -18,6 +18,7 @@
 (require 'json)
 (require 'mcp)
 (require 'elisp-dev-mcp)
+(require 'elisp-dev-mcp-test-no-checkdoc)
 
 ;;; Test functions used for function definition retrieval tests. Should be the
 ;;; first code in the file to keep the test line numbers stable.
@@ -52,9 +53,6 @@ X is the input value that will be doubled."
   'elisp-dev-mcp-test--aliased-function
   #'elisp-dev-mcp-test--with-header-comment
   "This is an alias for elisp-dev-mcp-test--with-header-comment.")
-
-(defun elisp-dev-mcp-test--no-docstring (x y)
-  (+ x y))
 
 (defmacro elisp-dev-mcp-test-with-server (&rest body)
   "Execute BODY with running MCP server and elisp-dev-mcp enabled."
@@ -233,21 +231,23 @@ EXPECTED-START-LINE, EXPECTED-END-LINE and EXPECTED-SOURCE."
       (should (string-match-p "ARG1 is the first argument" text)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-function-no-docstring ()
-  "Test that `describe-function' MCP handler works with functions lacking docstrings."
+  "Test `describe-function' MCP handler with undocumented functions."
   (elisp-dev-mcp-test-with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-test--no-docstring"))
+             "elisp-dev-mcp-test-no-checkdoc--no-docstring"))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
       ;; Should contain the function name
       (should
-       (string-match-p "elisp-dev-mcp-test--no-docstring" text))
+       (string-match-p
+        "elisp-dev-mcp-test-no-checkdoc--no-docstring" text))
       ;; Should be described as a Lisp closure (due to lexical-binding)
       (should (string-match-p "Lisp closure" text))
       ;; Should show argument list (uppercase) in the signature
       (should
-       (string-match-p "elisp-dev-mcp-test--no-docstring X Y)" text))
+       (string-match-p
+        "elisp-dev-mcp-test-no-checkdoc--no-docstring X Y)" text))
       ;; Should indicate lack of documentation
       (should (string-match-p "Not documented" text)))))
 
@@ -319,7 +319,7 @@ Any tool not found will be nil in the list."
   "Test that `elisp-get-function-definition' MCP handler works correctly."
   (elisp-dev-mcp-test-with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--without-header-comment" 40 43
+     "elisp-dev-mcp-test--without-header-comment" 41 44
      "(defun elisp-dev-mcp-test--without-header-comment (value)
   \"Simple function without a header comment.
 VALUE is multiplied by 2.\"
@@ -365,7 +365,7 @@ VALUE is multiplied by 2.\"
   "Test that `elisp-get-function-definition' includes header comments."
   (elisp-dev-mcp-test-with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--with-header-comment" 25 35
+     "elisp-dev-mcp-test--with-header-comment" 26 36
      ";; This is a header comment that should be included
 ;; when extracting the function definition
 (defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
@@ -533,12 +533,23 @@ D captures remaining arguments."
 
 (ert-deftest elisp-dev-mcp-test-get-function-definition-no-docstring
     ()
-  "Test that `elisp-get-function-definition' handles functions without docstrings."
+  "Test `elisp-get-function-definition' with undocumented functions."
   (elisp-dev-mcp-test-with-server
-    (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--no-docstring" 56 57
-     "(defun elisp-dev-mcp-test--no-docstring (x y)
-  (+ x y))")))
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data
+             "elisp-dev-mcp-test-no-checkdoc--no-docstring"))
+           (source (assoc-default 'source parsed-resp))
+           (file-path (assoc-default 'file-path parsed-resp)))
+
+      (should
+       (string=
+        (file-name-nondirectory file-path)
+        "elisp-dev-mcp-test-no-checkdoc.el"))
+      (should
+       (string=
+        source
+        "(defun elisp-dev-mcp-test-no-checkdoc--no-docstring (x y)
+  (+ x y))")))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
