@@ -18,6 +18,10 @@
 (require 'help-fns)
 (require 'pp)
 
+(defun elisp-dev-mcp--non-empty-docstring-p (doc)
+  "Return t if DOC is a non-empty documentation string, nil otherwise."
+  (and doc (not (string-empty-p doc))))
+
 (defun elisp-dev-mcp--describe-function (function)
   "Get full documentation for Emacs Lisp FUNCTION.
 
@@ -115,7 +119,7 @@ BODY is the list of body expressions."
     (if args
         (insert " " (prin1-to-string args))
       (insert " ()"))
-    (when doc
+    (when (elisp-dev-mcp--non-empty-docstring-p doc)
       (insert "\n  " (prin1-to-string doc)))
     (if body
         (dolist (expr body)
@@ -131,8 +135,10 @@ BODY is the list of body expressions."
 SYM is the function symbol, FN is the function object.
 Returns JSON response for an interactively defined function."
   (let* ((args (help-function-arglist sym t))
-         (doc (or (documentation sym) ""))
-         (body (elisp-dev-mcp--extract-function-body fn doc))
+         (doc (documentation sym))
+         (body
+          (elisp-dev-mcp--extract-function-body
+           fn (elisp-dev-mcp--non-empty-docstring-p doc)))
          (func-def
           (elisp-dev-mcp--reconstruct-function-definition
            fn-name args doc body)))

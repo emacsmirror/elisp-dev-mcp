@@ -93,6 +93,9 @@ else
 	echo "Skipping indentation due to syntax errors"
 fi
 
+# Remove byte-compiled files before linter to avoid conflicts
+rm -f ./*.elc
+
 # Only run elisp-lint if there are no errors so far
 if [ $ERRORS -eq 0 ]; then
 	echo -n "Running elisp-lint... "

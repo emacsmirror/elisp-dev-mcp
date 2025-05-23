@@ -141,6 +141,26 @@ EXPECTED-START-LINE, EXPECTED-END-LINE and EXPECTED-SOURCE."
     (should (= end-line expected-end-line))
     (should (string= source expected-source))))
 
+(defun elisp-dev-mcp-test--verify-interactive-definition
+    (function-name expected-patterns)
+  "Verify interactive function definition for FUNCTION-NAME.
+EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
+  (let* ((parsed-resp
+          (elisp-dev-mcp-test--get-definition-response-data
+           function-name))
+         (source (assoc-default 'source parsed-resp))
+         (file-path (assoc-default 'file-path parsed-resp)))
+
+    ;; Basic verifications
+    (should source)
+    (should (string-match-p "defun" source))
+    (should (string-match-p function-name source))
+    (should (string-match-p "interactive" file-path))
+
+    ;; Check all expected patterns
+    (dolist (pattern expected-patterns)
+      (should (string-match-p pattern source)))))
+
 ;;; Tests
 
 (ert-deftest elisp-dev-mcp-test-describe-function ()
@@ -394,17 +414,8 @@ Returns the sum of ARG1 and ARG2.\"
                 'interactive-result))
 
             ;; Now try to get its definition
-            (let* ((parsed-resp
-                    (elisp-dev-mcp-test--get-definition-response-data
-                     test-function-name))
-                   (source (assoc-default 'source parsed-resp))
-                   (file-path (assoc-default 'file-path parsed-resp)))
-
-              ;; Verify that we get a definition back, not an error
-              (should source)
-              (should (string-match-p "defun" source))
-              (should (string-match-p test-function-name source))
-              (should (string-match-p "interactive" file-path))))
+            (elisp-dev-mcp-test--verify-interactive-definition
+             test-function-name '()))
 
         ;; Clean up - remove the test function
         (fmakunbound sym)))))
@@ -550,6 +561,36 @@ D captures remaining arguments."
         source
         "(defun elisp-dev-mcp-test-no-checkdoc--no-docstring (x y)
   (+ x y))")))))
+
+(ert-deftest
+    elisp-dev-mcp-test-get-interactive-function-definition-no-docstring
+    ()
+  "Test get-function-definition for dynamically defined function w/o docstring."
+  (elisp-dev-mcp-test-with-server
+    ;; Define a function interactively without a docstring
+    (let* ((test-function-name
+            "elisp-dev-mcp-test--interactive-no-docstring")
+           (sym (intern test-function-name)))
+      (unwind-protect
+          (progn
+            ;; Define the test function without docstring
+            (eval
+             `(defun ,sym (a b)
+                (+ a b)))
+
+            ;; Now try to get its definition and verify specific patterns
+            (elisp-dev-mcp-test--verify-interactive-definition
+             test-function-name '("(a b)" "(\\+ a b)"))
+
+            ;; Additional check: Should not contain a docstring
+            (let* ((parsed-resp
+                    (elisp-dev-mcp-test--get-definition-response-data
+                     test-function-name))
+                   (source (assoc-default 'source parsed-resp)))
+              (should-not (string-match-p "\"" source))))
+
+        ;; Clean up - remove the test function
+        (fmakunbound sym)))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
