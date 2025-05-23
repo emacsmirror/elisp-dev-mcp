@@ -73,6 +73,12 @@ X is the input value that will be doubled."
       (should (string-match-p "interpreted-function" text))
     (should (string-match-p "Lisp closure" text))))
 
+(defun elisp-dev-mcp-test--check-dynamic-text (text)
+  "Check TEXT containing expected dynamic binding function description."
+  (if (>= emacs-major-version 30)
+      (should (string-match-p "interpreted-function" text))
+    (should (string-match-p "Lisp function" text))))
+
 ;;; Helpers to create tool call requests
 
 (defun elisp-dev-mcp-test--describe-req (function-name)
@@ -706,7 +712,7 @@ D captures remaining arguments."
       ;; Debug: print the actual text
       (message "DEBUG dynamic-binding: text = %S" text)
       ;; Should show as "Lisp function" not "Lisp closure"
-      (should (string-match-p "Lisp function" text))
+      (elisp-dev-mcp-test--check-dynamic-text text)
       (should-not (string-match-p "closure" text))
       ;; Should include the docstring
       (should
