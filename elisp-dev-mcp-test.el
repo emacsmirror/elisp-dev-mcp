@@ -644,7 +644,7 @@ D captures remaining arguments."
 (ert-deftest
     elisp-dev-mcp-test-get-interactive-function-definition-empty-docstring
     ()
-  "Test get-function-definition for dynamically defined function w/ empty docstring."
+  "Test get-function-definition for dynamically defined function w/ empty doc."
   (elisp-dev-mcp-test-with-server
     ;; Define a function interactively with an empty docstring
     (let* ((test-function-name
@@ -671,6 +671,73 @@ D captures remaining arguments."
 
         ;; Clean up - remove the test function
         (fmakunbound sym)))))
+
+(ert-deftest elisp-dev-mcp-test-describe-dynamic-binding-function ()
+  "Test `describe-function' with functions from lexical-binding: nil files."
+  (elisp-dev-mcp-test-with-server
+    ;; Load the dynamic binding test file
+    (require 'elisp-dev-mcp-test-dynamic)
+
+    ;; Test describe-function with dynamic binding function
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req
+             "elisp-dev-mcp-test-dynamic--with-header-comment"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+
+      ;; Should contain the function name
+      (should
+       (string-match-p
+        "elisp-dev-mcp-test-dynamic--with-header-comment" text))
+      ;; Should show it's in the dynamic binding test file
+      (should (string-match-p "elisp-dev-mcp-test-dynamic\\.el" text))
+      ;; Should show as "Lisp function" not "Lisp closure"
+      (should (string-match-p "Lisp function" text))
+      (should-not (string-match-p "closure" text))
+      ;; Should include the docstring
+      (should
+       (string-match-p "Sample function with a header comment" text))
+      ;; Should include parameter documentation
+      (should (string-match-p "ARG1 is the first argument" text)))))
+
+(ert-deftest
+    elisp-dev-mcp-test-get-dynamic-binding-function-definition
+    ()
+  "Test 'get-function-definition' with lexical-binding: nil functions."
+  (elisp-dev-mcp-test-with-server
+    ;; Load the dynamic binding test file
+    (require 'elisp-dev-mcp-test-dynamic)
+
+    ;; Test get-function-definition with dynamic binding function
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data
+             "elisp-dev-mcp-test-dynamic--with-header-comment"))
+           (source (assoc-default 'source parsed-resp))
+           (file-path (assoc-default 'file-path parsed-resp))
+           (start-line (assoc-default 'start-line parsed-resp))
+           (end-line (assoc-default 'end-line parsed-resp)))
+
+      ;; Verify file path is the dynamic binding file
+      (should
+       (string=
+        (file-name-nondirectory file-path)
+        "elisp-dev-mcp-test-dynamic.el"))
+      (should (= start-line 19))
+      (should (= end-line 29))
+      (should
+       (string=
+        source
+        ";; This is a header comment that should be included
+;; when extracting the function definition
+(defun elisp-dev-mcp-test-dynamic--with-header-comment (arg1 arg2)
+  \"Sample function with a header comment in dynamic binding context.
+Demonstrates comment extraction capabilities.
+
+ARG1 is the first argument.
+ARG2 is the second argument.
+
+Returns the sum of ARG1 and ARG2.\"
+  (+ arg1 arg2))")))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
