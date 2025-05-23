@@ -125,6 +125,23 @@ BODY is the list of body expressions."
     (insert ")")
     (buffer-string)))
 
+(defun elisp-dev-mcp--get-function-definition-interactive
+    (fn-name sym fn)
+  "Handle interactively defined function FN-NAME.
+SYM is the function symbol, FN is the function object.
+Returns JSON response for an interactively defined function."
+  (let* ((args (help-function-arglist sym t))
+         (doc (or (documentation sym) ""))
+         (body (elisp-dev-mcp--extract-function-body fn doc))
+         (func-def
+          (elisp-dev-mcp--reconstruct-function-definition
+           fn-name args doc body)))
+    (json-encode
+     `((source . ,func-def)
+       (file-path . "<interactively defined>")
+       (start-line . 1)
+       (end-line . 1)))))
+
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
 
@@ -153,18 +170,8 @@ MCP Parameters:
                  (format "'%s" function) ; create minimal source
                  function aliased-to "<interactively defined>" 1 1)
               ;; Regular interactively defined functions
-              (let* ((args (help-function-arglist sym t))
-                     (doc (or (documentation sym) ""))
-                     (body
-                      (elisp-dev-mcp--extract-function-body fn doc))
-                     (func-def
-                      (elisp-dev-mcp--reconstruct-function-definition
-                       function args doc body)))
-                (json-encode
-                 `((source . ,func-def)
-                   (file-path . "<interactively defined>")
-                   (start-line . 1)
-                   (end-line . 1)))))
+              (elisp-dev-mcp--get-function-definition-interactive
+               function sym fn))
 
           ;; Functions with source file
           (with-temp-buffer
