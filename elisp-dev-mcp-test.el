@@ -531,5 +531,14 @@ D captures remaining arguments."
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function load-path is not found"))))
 
+(ert-deftest elisp-dev-mcp-test-get-function-definition-no-docstring
+    ()
+  "Test that `elisp-get-function-definition' handles functions without docstrings."
+  (elisp-dev-mcp-test-with-server
+    (elisp-dev-mcp-test--verify-definition-in-test-file
+     "elisp-dev-mcp-test--no-docstring" 56 57
+     "(defun elisp-dev-mcp-test--no-docstring (x y)
+  (+ x y))")))
+
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
