@@ -67,6 +67,12 @@ X is the input value that will be doubled."
 
 ;;; Helpers to create JSON requests
 
+(defun elisp-dev-mcp-test--check-closure-text (text)
+  "Check TEXT containing expected closure description for current Emacs."
+  (if (>= emacs-major-version 30)
+      (should (string-match-p "interpreted-function" text))
+    (should (string-match-p "Lisp closure" text))))
+
 ;;; Helpers to create tool call requests
 
 (defun elisp-dev-mcp-test--describe-req (function-name)
@@ -264,8 +270,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
         "elisp-dev-mcp-test-no-checkdoc--no-docstring" text))
       ;; Debug: print the actual text
       (message "DEBUG no-docstring: text = %S" text)
-      ;; Should be described as a Lisp closure (due to lexical-binding)
-      (should (string-match-p "Lisp closure" text))
+      (elisp-dev-mcp-test--check-closure-text text)
       ;; Should show argument list (uppercase) in the signature
       (should
        (string-match-p
@@ -287,8 +292,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
         "elisp-dev-mcp-test-no-checkdoc--empty-docstring" text))
       ;; Debug: print the actual text
       (message "DEBUG empty-docstring: text = %S" text)
-      ;; Should be described as a Lisp closure (due to lexical-binding)
-      (should (string-match-p "Lisp closure" text))
+      (elisp-dev-mcp-test--check-closure-text text)
       ;; Should show argument list (uppercase) in the signature
       (should
        (string-match-p
