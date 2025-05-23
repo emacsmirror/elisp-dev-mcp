@@ -282,8 +282,6 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
       (should
        (string-match-p
         "elisp-dev-mcp-test-no-checkdoc--no-docstring" text))
-      ;; Debug: print the actual text
-      (message "DEBUG no-docstring: text = %S" text)
       (elisp-dev-mcp-test--check-closure-text text)
       ;; Should show argument list (uppercase) in the signature
       (should
@@ -304,8 +302,6 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
       (should
        (string-match-p
         "elisp-dev-mcp-test-no-checkdoc--empty-docstring" text))
-      ;; Debug: print the actual text
-      (message "DEBUG empty-docstring: text = %S" text)
       (elisp-dev-mcp-test--check-closure-text text)
       ;; Should show argument list (uppercase) in the signature
       (should
@@ -689,10 +685,6 @@ D captures remaining arguments."
                     (elisp-dev-mcp-test--get-definition-response-data
                      test-function-name))
                    (source (assoc-default 'source parsed-resp)))
-              ;; Debug: print the actual source
-              (message
-               "DEBUG interactive-empty-docstring: source = %S"
-               source)
               (elisp-dev-mcp-test--check-empty-docstring source)))
 
         ;; Clean up - remove the test function
@@ -717,8 +709,6 @@ D captures remaining arguments."
         "elisp-dev-mcp-test-dynamic--with-header-comment" text))
       ;; Should show it's in the dynamic binding test file
       (should (string-match-p "elisp-dev-mcp-test-dynamic\\.el" text))
-      ;; Debug: print the actual text
-      (message "DEBUG dynamic-binding: text = %S" text)
       ;; Should show as "Lisp function" not "Lisp closure"
       (elisp-dev-mcp-test--check-dynamic-text text)
       (should-not (string-match-p "closure" text))
