@@ -757,5 +757,39 @@ ARG2 is the second argument.
 Returns the sum of ARG1 and ARG2.\"
   (+ arg1 arg2))")))))
 
+(ert-deftest elisp-dev-mcp-test-describe-interactive-dynamic-function
+    ()
+  "Test 'describe-function' with interactively defined dynamic function."
+  (elisp-dev-mcp-test-with-server
+    (let* ((test-function-name
+            "elisp-dev-mcp-test--interactive-dynamic-func")
+           (sym (intern test-function-name))
+           (lexical-binding nil))
+      (unwind-protect
+          (progn
+            (eval `(defun ,sym (x y)
+                     "A dynamically scoped interactive function.
+X and Y are dynamically scoped arguments."
+                     (let ((z (+ x y)))
+                       (* z 2)))
+                  nil)
+
+            (let* ((req
+                    (elisp-dev-mcp-test--describe-req
+                     test-function-name))
+                   (resp (elisp-dev-mcp-test--send-req req))
+                   (text
+                    (elisp-dev-mcp-test--check-resp-get-text
+                     resp nil)))
+              (should (string-match-p test-function-name text))
+              (elisp-dev-mcp-test--check-dynamic-text text)
+              (should
+               (string-match-p "dynamically scoped interactive" text))
+              (should
+               (string-match-p
+                (format "%s X Y)" test-function-name) text))))
+
+        (fmakunbound sym)))))
+
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
