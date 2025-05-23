@@ -865,6 +865,29 @@ X and Y are dynamically scoped arguments."
       ;; Documentation should be null for undocumented variables
       (should (null (assoc-default 'documentation parsed))))))
 
+(ert-deftest elisp-dev-mcp-test-describe-variable-empty-docstring ()
+  "Test `describe-variable' MCP handler with empty docstring variables."
+  (elisp-dev-mcp-test-with-server
+    (let*
+        ((req
+          (mcp-create-tools-call-request
+           "elisp-describe-variable" 1
+           `((variable
+              .
+              "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var"))))
+         (resp (elisp-dev-mcp-test--send-req req))
+         (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+         (parsed (json-read-from-string text)))
+      ;; Check the response
+      (should
+       (string=
+        (assoc-default 'name parsed)
+        "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "symbol"))
+      ;; Empty docstring should be returned as empty string
+      (should (string= (assoc-default 'documentation parsed) "")))))
+
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
   (let* ((source-file

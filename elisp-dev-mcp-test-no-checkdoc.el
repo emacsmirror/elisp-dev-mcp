@@ -22,6 +22,9 @@
   ""
   (+ x y))
 
+(defvar elisp-dev-mcp-test-no-checkdoc--empty-docstring-var nil
+  "")
+
 (provide 'elisp-dev-mcp-test-no-checkdoc)
 
 ;; Local Variables:
