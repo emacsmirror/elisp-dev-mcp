@@ -153,6 +153,8 @@ Returns JSON response for an interactively defined function."
 
 MCP Parameters:
   variable - The name of the variable to describe"
+  (unless (stringp variable)
+    (mcp-tool-throw "Invalid variable name"))
   (condition-case nil
       (let* ((sym (intern variable))
              (type (type-of (symbol-value sym)))

@@ -818,6 +818,16 @@ X and Y are dynamically scoped arguments."
       (elisp-dev-mcp-test--verify-error-resp
        resp "Variable non-existent-variable-xyz is not bound"))))
 
+(ert-deftest elisp-dev-mcp-test-describe-invalid-variable-type ()
+  "Test that `describe-variable' handles non-string variable names properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable" 1 `((variable . 123))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid variable name"))))
+
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
   (let* ((source-file
