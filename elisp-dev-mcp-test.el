@@ -791,6 +791,21 @@ X and Y are dynamically scoped arguments."
 
         (fmakunbound sym)))))
 
+(ert-deftest elisp-dev-mcp-test-describe-variable ()
+  "Test that `describe-variable' MCP handler works correctly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable" 1 `((variable . "load-path"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      ;; Basic checks for a well-known variable
+      (should (string= (assoc-default 'name parsed) "load-path"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "cons"))
+      (should (stringp (assoc-default 'documentation parsed))))))
+
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
   (let* ((source-file

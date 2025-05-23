@@ -148,6 +148,20 @@ Returns JSON response for an interactively defined function."
        (start-line . 1)
        (end-line . 1)))))
 
+(defun elisp-dev-mcp--describe-variable (variable)
+  "Get information about Emacs Lisp VARIABLE without exposing its value.
+
+MCP Parameters:
+  variable - The name of the variable to describe"
+  (let* ((sym (intern variable))
+         (type (type-of (symbol-value sym)))
+         (doc (documentation-property sym 'variable-documentation)))
+    (json-encode
+     `((name . ,variable)
+       (bound . t)
+       (value-type . ,(symbol-name type))
+       (documentation . ,doc)))))
+
 (defun elisp-dev-mcp--get-function-definition-from-file
     (fn-name sym func-file is-alias aliased-to)
   "Extract function definition for FN-NAME from FUNC-FILE.
@@ -280,7 +294,7 @@ functions defined in C, returns a suggestion to call elisp-describe-function
 tool instead.
 
 Returns JSON with:
-- source: Complete function definition including header comments (;; above defun)
+- source: Complete function definition including header comments
 - file-path: Absolute path to source file or '<interactively defined>'
 - start-line: Line number where definition starts (1-based)
 - end-line: Line number where definition ends
@@ -299,13 +313,21 @@ Use this tool when you need to:
 - View or analyze function implementation
 - Extract function source for modification
 - Understand function structure with comments"
+   :read-only t)
+  (mcp-register-tool
+   #'elisp-dev-mcp--describe-variable
+   :id "elisp-describe-variable"
+   :description
+   "Get information about an Emacs Lisp variable without exposing its value.
+Returns variable documentation and metadata from the current Emacs environment."
    :read-only t))
 
 ;;;###autoload
 (defun elisp-dev-mcp-disable ()
   "Disable the Elisp development MCP tools."
   (mcp-unregister-tool "elisp-describe-function")
-  (mcp-unregister-tool "elisp-get-function-definition"))
+  (mcp-unregister-tool "elisp-get-function-definition")
+  (mcp-unregister-tool "elisp-describe-variable"))
 
 (provide 'elisp-dev-mcp)
 ;;; elisp-dev-mcp.el ends here
