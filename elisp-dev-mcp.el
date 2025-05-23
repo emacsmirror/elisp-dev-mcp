@@ -142,6 +142,65 @@ Returns JSON response for an interactively defined function."
        (start-line . 1)
        (end-line . 1)))))
 
+(defun elisp-dev-mcp--get-function-definition-from-file
+    (fn-name sym func-file is-alias aliased-to)
+  "Extract function definition for FN-NAME from FUNC-FILE.
+SYM is the function symbol.
+IS-ALIAS and ALIASED-TO are used for special handling of aliases."
+  (with-temp-buffer
+    (insert-file-contents func-file)
+    (goto-char (point-min))
+    (let ((def-pos
+           (find-function-search-for-symbol sym nil func-file)))
+      (unless def-pos
+        (mcp-tool-throw
+         (format "Could not locate definition for %s" fn-name)))
+      (goto-char (cdr def-pos))
+      ;; Get function definition with any header comments
+      (let* ((func-point (point))
+             (func-line (line-number-at-pos))
+             (start-point func-point)
+             (start-line func-line)
+             (end-line nil)
+             (source nil))
+
+        ;; Go back to search for comments
+        (beginning-of-line)
+        (forward-line -1) ;; Check line above function
+
+        ;; If this is a comment line, it's part of the header comment
+        (when (looking-at "^[ \t]*;;")
+
+          ;; Find first line of the consecutive comment block
+          (while (and (looking-at "^[ \t]*;;")
+                      (> (forward-line -1) -1)))
+
+          ;; We went one line too far back
+          (forward-line 1)
+
+          ;; Update start point to include header comments
+          (setq start-point (point))
+          (setq start-line (line-number-at-pos)))
+
+        ;; Return to function start point to process the definition
+        (goto-char func-point)
+        (forward-sexp)
+        (setq end-line (line-number-at-pos))
+
+        ;; Extract the source code including any header comments
+        (setq source
+              (buffer-substring-no-properties start-point (point)))
+
+        ;; Return the result, with special handling for aliases
+        (if is-alias
+            (elisp-dev-mcp--process-alias-source
+             source fn-name aliased-to func-file start-line end-line)
+          (json-encode
+           `((source . ,source)
+             (file-path . ,func-file)
+             (start-line . ,start-line)
+             (end-line . ,end-line))))))))
+
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
 
@@ -174,67 +233,8 @@ MCP Parameters:
                function sym fn))
 
           ;; Functions with source file
-          (with-temp-buffer
-            (insert-file-contents func-file)
-            (goto-char (point-min))
-            (let ((def-pos
-                   (find-function-search-for-symbol
-                    sym nil func-file)))
-              (unless def-pos
-                (mcp-tool-throw
-                 (format "Could not locate definition for %s"
-                         function)))
-              (goto-char (cdr def-pos))
-              ;; Get function definition with any header comments
-              (let* ((func-point (point))
-                     (func-line (line-number-at-pos))
-                     (start-point func-point)
-                     (start-line func-line)
-                     (end-line nil)
-                     (source nil))
-
-                ;; Go back to search for comments
-                (beginning-of-line)
-                (forward-line -1) ;; Check line above function
-
-                ;; If this is a comment line, it's part of the header comment
-                (when (looking-at "^[ \t]*;;")
-
-                  ;; Find first line of the consecutive comment block
-                  (while (and (looking-at "^[ \t]*;;")
-                              (> (forward-line -1) -1)))
-
-                  ;; We went one line too far back
-                  (forward-line 1)
-
-                  ;; Update start point to include header comments
-                  (setq start-point (point))
-                  (setq start-line (line-number-at-pos)))
-
-                ;; Return to function start point to process the definition
-                (goto-char func-point)
-                (forward-sexp)
-                (setq end-line (line-number-at-pos))
-
-                ;; Extract the source code including any header comments
-                (setq source
-                      (buffer-substring-no-properties
-                       start-point (point)))
-
-                ;; Return the result, with special handling for aliases
-                (if is-alias
-                    (elisp-dev-mcp--process-alias-source
-                     source
-                     function
-                     aliased-to
-                     func-file
-                     start-line
-                     end-line)
-                  (json-encode
-                   `((source . ,source)
-                     (file-path . ,func-file)
-                     (start-line . ,start-line)
-                     (end-line . ,end-line))))))))))))
+          (elisp-dev-mcp--get-function-definition-from-file
+           function sym func-file is-alias aliased-to))))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()

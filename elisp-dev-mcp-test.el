@@ -53,6 +53,9 @@ X is the input value that will be doubled."
   #'elisp-dev-mcp-test--with-header-comment
   "This is an alias for elisp-dev-mcp-test--with-header-comment.")
 
+(defun elisp-dev-mcp-test--no-docstring (x y)
+  (+ x y))
+
 (defmacro elisp-dev-mcp-test-with-server (&rest body)
   "Execute BODY with running MCP server and elisp-dev-mcp enabled."
   (declare (indent defun) (debug t))
@@ -228,6 +231,25 @@ EXPECTED-START-LINE, EXPECTED-END-LINE and EXPECTED-SOURCE."
        (string-match-p "Sample function with a header comment" text))
       ;; Should include parameter documentation
       (should (string-match-p "ARG1 is the first argument" text)))))
+
+(ert-deftest elisp-dev-mcp-test-describe-function-no-docstring ()
+  "Test that `describe-function' MCP handler works with functions lacking docstrings."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req
+             "elisp-dev-mcp-test--no-docstring"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      ;; Should contain the function name
+      (should
+       (string-match-p "elisp-dev-mcp-test--no-docstring" text))
+      ;; Should be described as a Lisp closure (due to lexical-binding)
+      (should (string-match-p "Lisp closure" text))
+      ;; Should show argument list (uppercase) in the signature
+      (should
+       (string-match-p "elisp-dev-mcp-test--no-docstring X Y)" text))
+      ;; Should indicate lack of documentation
+      (should (string-match-p "Not documented" text)))))
 
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
