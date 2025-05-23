@@ -65,6 +65,10 @@ X is the input value that will be doubled."
      (elisp-dev-mcp-disable)
      (mcp-stop)))
 
+;;; Test variables
+
+(defvar elisp-dev-mcp-test--undocumented-var)
+
 ;;; Helpers to create JSON requests
 
 (defun elisp-dev-mcp-test--check-closure-text (text)
@@ -837,6 +841,29 @@ X and Y are dynamically scoped arguments."
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Variable  is not bound"))))
+
+(ert-deftest elisp-dev-mcp-test-describe-variable-no-docstring ()
+  "Test `describe-variable' MCP handler with undocumented variables."
+  (elisp-dev-mcp-test-with-server
+    ;; Create a variable without documentation
+    (setq elisp-dev-mcp-test--undocumented-var 42)
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--undocumented-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      ;; Check the response
+      (should
+       (string=
+        (assoc-default 'name parsed)
+        "elisp-dev-mcp-test--undocumented-var"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "integer"))
+      ;; Documentation should be null for undocumented variables
+      (should (null (assoc-default 'documentation parsed))))))
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
