@@ -153,14 +153,18 @@ Returns JSON response for an interactively defined function."
 
 MCP Parameters:
   variable - The name of the variable to describe"
-  (let* ((sym (intern variable))
-         (type (type-of (symbol-value sym)))
-         (doc (documentation-property sym 'variable-documentation)))
-    (json-encode
-     `((name . ,variable)
-       (bound . t)
-       (value-type . ,(symbol-name type))
-       (documentation . ,doc)))))
+  (condition-case nil
+      (let* ((sym (intern variable))
+             (type (type-of (symbol-value sym)))
+             (doc
+              (documentation-property sym 'variable-documentation)))
+        (json-encode
+         `((name . ,variable)
+           (bound . t)
+           (value-type . ,(symbol-name type))
+           (documentation . ,doc))))
+    (void-variable
+     (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 
 (defun elisp-dev-mcp--get-function-definition-from-file
     (fn-name sym func-file is-alias aliased-to)
