@@ -79,6 +79,14 @@ X is the input value that will be doubled."
       (should (string-match-p "interpreted-function" text))
     (should (string-match-p "Lisp function" text))))
 
+(defun elisp-dev-mcp-test--check-empty-docstring (source)
+  "Check SOURCE for empty docstring based on Emacs version."
+  (if (>= emacs-major-version 30)
+      ;; Emacs 30+ strips empty docstrings
+      (should-not (string-match-p "\"\"" source))
+    ;; Older versions preserve empty docstrings
+    (should (string-match-p "\"\"" source))))
+
 ;;; Helpers to create tool call requests
 
 (defun elisp-dev-mcp-test--describe-req (function-name)
@@ -685,7 +693,7 @@ D captures remaining arguments."
               (message
                "DEBUG interactive-empty-docstring: source = %S"
                source)
-              (should (string-match-p "\"\"" source))))
+              (elisp-dev-mcp-test--check-empty-docstring source)))
 
         ;; Clean up - remove the test function
         (fmakunbound sym)))))
