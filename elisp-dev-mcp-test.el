@@ -110,6 +110,15 @@ Returns the text content when validation passes."
     error-pattern
     (elisp-dev-mcp-test--check-resp-get-text response t))))
 
+(defun elisp-dev-mcp-test--get-definition-response-data
+    (function-name)
+  "Get function definition response data for FUNCTION-NAME.
+Returns the parsed JSON response object."
+  (let* ((req (elisp-dev-mcp-test--definition-req function-name))
+         (resp (elisp-dev-mcp-test--send-req req))
+         (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+    (json-read-from-string text)))
+
 ;;; Tests
 
 (ert-deftest elisp-dev-mcp-test-describe-function ()
@@ -242,12 +251,9 @@ Any tool not found will be nil in the list."
 (ert-deftest elisp-dev-mcp-test-get-function-definition ()
   "Test that `elisp-get-function-definition' MCP handler works correctly."
   (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (elisp-dev-mcp-test--definition-req
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data
              "elisp-dev-mcp-test--without-header-comment"))
-           (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
-           (parsed-resp (json-read-from-string text))
            (source (assoc-default 'source parsed-resp))
            (file-path (assoc-default 'file-path parsed-resp))
            (start-line (assoc-default 'start-line parsed-resp))
@@ -288,10 +294,8 @@ VALUE is multiplied by 2.\"
 (ert-deftest elisp-dev-mcp-test-get-c-function-definition ()
   "Test that `elisp-get-function-definition' handles C-implemented functions."
   (elisp-dev-mcp-test-with-server
-    (let* ((req (elisp-dev-mcp-test--definition-req "car"))
-           (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
-           (parsed-resp (json-read-from-string text))
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data "car"))
            (is-c-function (assoc-default 'is-c-function parsed-resp))
            (function-name (assoc-default 'function-name parsed-resp))
            (message (assoc-default 'message parsed-resp)))
@@ -307,12 +311,9 @@ VALUE is multiplied by 2.\"
 (ert-deftest elisp-dev-mcp-test-get-function-with-header-comment ()
   "Test that `elisp-get-function-definition' includes header comments."
   (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (elisp-dev-mcp-test--definition-req
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data
              "elisp-dev-mcp-test--with-header-comment"))
-           (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
-           (parsed-resp (json-read-from-string text))
            (source (assoc-default 'source parsed-resp))
            (file-path (assoc-default 'file-path parsed-resp))
            (start-line (assoc-default 'start-line parsed-resp))
@@ -354,14 +355,9 @@ Returns the sum of ARG1 and ARG2.\"
                 'interactive-result))
 
             ;; Now try to get its definition
-            (let* ((req
-                    (elisp-dev-mcp-test--definition-req
+            (let* ((parsed-resp
+                    (elisp-dev-mcp-test--get-definition-response-data
                      test-function-name))
-                   (resp (elisp-dev-mcp-test--send-req req))
-                   (text
-                    (elisp-dev-mcp-test--check-resp-get-text
-                     resp nil))
-                   (parsed-resp (json-read-from-string text))
                    (source (assoc-default 'source parsed-resp))
                    (file-path (assoc-default 'file-path parsed-resp)))
 
@@ -393,14 +389,9 @@ D captures remaining arguments."
                 (list a b c d)))
 
             ;; Now try to get its definition
-            (let* ((req
-                    (elisp-dev-mcp-test--definition-req
+            (let* ((parsed-resp
+                    (elisp-dev-mcp-test--get-definition-response-data
                      test-function-name))
-                   (resp (elisp-dev-mcp-test--send-req req))
-                   (text
-                    (elisp-dev-mcp-test--check-resp-get-text
-                     resp nil))
-                   (parsed-resp (json-read-from-string text))
                    (source (assoc-default 'source parsed-resp))
                    (file-path (assoc-default 'file-path parsed-resp)))
 
@@ -440,12 +431,9 @@ D captures remaining arguments."
 (ert-deftest elisp-dev-mcp-test-get-function-definition-alias ()
   "Test that `elisp-get-function-definition' works with function aliases."
   (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (elisp-dev-mcp-test--definition-req
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data
              "elisp-dev-mcp-test--aliased-function"))
-           (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
-           (parsed-resp (json-read-from-string text))
            (source (assoc-default 'source parsed-resp))
            (file-path (assoc-default 'file-path parsed-resp)))
 
@@ -473,10 +461,8 @@ D captures remaining arguments."
 (ert-deftest elisp-dev-mcp-test-get-special-form-definition ()
   "Test that `elisp-get-function-definition' handles special forms correctly."
   (elisp-dev-mcp-test-with-server
-    (let* ((req (elisp-dev-mcp-test--definition-req "if"))
-           (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
-           (parsed-resp (json-read-from-string text))
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data "if"))
            (is-c-function (assoc-default 'is-c-function parsed-resp))
            (function-name (assoc-default 'function-name parsed-resp))
            (message (assoc-default 'message parsed-resp)))
