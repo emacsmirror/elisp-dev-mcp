@@ -119,6 +119,27 @@ Returns the parsed JSON response object."
          (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
     (json-read-from-string text)))
 
+(defun elisp-dev-mcp-test--verify-definition-in-test-file
+    (function-name
+     expected-start-line expected-end-line expected-source)
+  "Verify function definition for FUNCTION-NAME is in test file.
+Checks that the function is defined in elisp-dev-mcp-test.el with
+EXPECTED-START-LINE, EXPECTED-END-LINE and EXPECTED-SOURCE."
+  (let* ((parsed-resp
+          (elisp-dev-mcp-test--get-definition-response-data
+           function-name))
+         (source (assoc-default 'source parsed-resp))
+         (file-path (assoc-default 'file-path parsed-resp))
+         (start-line (assoc-default 'start-line parsed-resp))
+         (end-line (assoc-default 'end-line parsed-resp)))
+
+    (should
+     (string=
+      (file-name-nondirectory file-path) "elisp-dev-mcp-test.el"))
+    (should (= start-line expected-start-line))
+    (should (= end-line expected-end-line))
+    (should (string= source expected-source))))
+
 ;;; Tests
 
 (ert-deftest elisp-dev-mcp-test-describe-function ()
@@ -251,26 +272,12 @@ Any tool not found will be nil in the list."
 (ert-deftest elisp-dev-mcp-test-get-function-definition ()
   "Test that `elisp-get-function-definition' MCP handler works correctly."
   (elisp-dev-mcp-test-with-server
-    (let* ((parsed-resp
-            (elisp-dev-mcp-test--get-definition-response-data
-             "elisp-dev-mcp-test--without-header-comment"))
-           (source (assoc-default 'source parsed-resp))
-           (file-path (assoc-default 'file-path parsed-resp))
-           (start-line (assoc-default 'start-line parsed-resp))
-           (end-line (assoc-default 'end-line parsed-resp)))
-
-      (should
-       (string=
-        (file-name-nondirectory file-path) "elisp-dev-mcp-test.el"))
-      (should (= start-line 40))
-      (should (= end-line 43))
-      (should
-       (string=
-        source
-        "(defun elisp-dev-mcp-test--without-header-comment (value)
+    (elisp-dev-mcp-test--verify-definition-in-test-file
+     "elisp-dev-mcp-test--without-header-comment" 40 43
+     "(defun elisp-dev-mcp-test--without-header-comment (value)
   \"Simple function without a header comment.
 VALUE is multiplied by 2.\"
-  (* value 2))")))))
+  (* value 2))")))
 
 (ert-deftest elisp-dev-mcp-test-get-nonexistent-function-definition ()
   "Test that `elisp-get-function-definition' handles non-existent functions."
@@ -311,23 +318,9 @@ VALUE is multiplied by 2.\"
 (ert-deftest elisp-dev-mcp-test-get-function-with-header-comment ()
   "Test that `elisp-get-function-definition' includes header comments."
   (elisp-dev-mcp-test-with-server
-    (let* ((parsed-resp
-            (elisp-dev-mcp-test--get-definition-response-data
-             "elisp-dev-mcp-test--with-header-comment"))
-           (source (assoc-default 'source parsed-resp))
-           (file-path (assoc-default 'file-path parsed-resp))
-           (start-line (assoc-default 'start-line parsed-resp))
-           (end-line (assoc-default 'end-line parsed-resp)))
-
-      (should
-       (string=
-        (file-name-nondirectory file-path) "elisp-dev-mcp-test.el"))
-      (should (= start-line 25))
-      (should (= end-line 35))
-      (should
-       (string=
-        source
-        ";; This is a header comment that should be included
+    (elisp-dev-mcp-test--verify-definition-in-test-file
+     "elisp-dev-mcp-test--with-header-comment" 25 35
+     ";; This is a header comment that should be included
 ;; when extracting the function definition
 (defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
   \"Sample function with a header comment.
@@ -337,7 +330,7 @@ ARG1 is the first argument.
 ARG2 is the second argument.
 
 Returns the sum of ARG1 and ARG2.\"
-  (+ arg1 arg2))")))))
+  (+ arg1 arg2))")))
 
 (ert-deftest elisp-dev-mcp-test-get-interactively-defined-function ()
   "Test interactively defined functions with get-function-definition."
