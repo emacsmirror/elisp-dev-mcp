@@ -827,7 +827,7 @@ X and Y are dynamically scoped arguments."
 (ert-deftest
     elisp-dev-mcp-test-get-bytecode-function-definition-with-header
     ()
-  "Test `get-function-definition' with byte-compiled function with header comment."
+  "Test `get-function-definition' with byte-compiled function with header."
   (let* ((source-file
           (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
          (bytecode-file (byte-compile-dest-file source-file)))
@@ -866,7 +866,7 @@ X and Y are dynamically scoped arguments."
 (ert-deftest
     elisp-dev-mcp-test-get-bytecode-function-definition-no-docstring
     ()
-  "Test `get-function-definition' with byte-compiled function without docstring."
+  "Test `get-function-definition' with byte-compiled function w/o docstring."
   (let* ((source-file
           (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
          (bytecode-file (byte-compile-dest-file source-file)))
@@ -884,7 +884,9 @@ X and Y are dynamically scoped arguments."
               (should
                (string=
                 source
-                "(defun elisp-dev-mcp-test-bytecode--no-docstring (a b)\n  (* a b))")))))
+                (concat
+                 "(defun elisp-dev-mcp-test-bytecode--no-docstring "
+                 "(a b)\n  (* a b))"))))))
 
       (when (file-exists-p bytecode-file)
         (delete-file bytecode-file)))))
@@ -909,7 +911,9 @@ X and Y are dynamically scoped arguments."
               (should
                (string=
                 source
-                "(defun elisp-dev-mcp-test-bytecode--empty-docstring (n)\n  \"\"\n  (* n 2))")))))
+                (concat
+                 "(defun elisp-dev-mcp-test-bytecode--empty-docstring "
+                 "(n)\n  \"\"\n  (* n 2))"))))))
 
       (when (file-exists-p bytecode-file)
         (delete-file bytecode-file)))))
