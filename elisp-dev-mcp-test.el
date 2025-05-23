@@ -205,6 +205,30 @@ EXPECTED-START-LINE, EXPECTED-END-LINE and EXPECTED-SOURCE."
        (string-match-p "elisp-dev-mcp-test--inline-function" text))
       (should (string-match-p "inline" text)))))
 
+(ert-deftest elisp-dev-mcp-test-describe-regular-function ()
+  "Test that `describe-function' MCP handler works with regular defun."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req
+             "elisp-dev-mcp-test--with-header-comment"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      ;; Should contain the function name
+      (should
+       (string-match-p
+        "elisp-dev-mcp-test--with-header-comment" text))
+      ;; Should show it's in the test file
+      (should (string-match-p "elisp-dev-mcp-test\\.el" text))
+      ;; Should show the function signature with arguments
+      (should
+       (string-match-p
+        "elisp-dev-mcp-test--with-header-comment ARG1 ARG2)" text))
+      ;; Should include the docstring
+      (should
+       (string-match-p "Sample function with a header comment" text))
+      ;; Should include parameter documentation
+      (should (string-match-p "ARG1 is the first argument" text)))))
+
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
