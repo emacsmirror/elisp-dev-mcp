@@ -18,6 +18,10 @@
 (defun elisp-dev-mcp-test-no-checkdoc--no-docstring (x y)
   (+ x y))
 
+(defun elisp-dev-mcp-test-no-checkdoc--empty-docstring (x y)
+  ""
+  (+ x y))
+
 (provide 'elisp-dev-mcp-test-no-checkdoc)
 
 ;; Local Variables:

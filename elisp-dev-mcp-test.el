@@ -271,6 +271,33 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
       ;; Should indicate lack of documentation
       (should (string-match-p "Not documented" text)))))
 
+(ert-deftest elisp-dev-mcp-test-describe-function-empty-docstring ()
+  "Test `describe-function' MCP handler with empty docstring functions."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (elisp-dev-mcp-test--describe-req
+             "elisp-dev-mcp-test-no-checkdoc--empty-docstring"))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      ;; Should contain the function name
+      (should
+       (string-match-p
+        "elisp-dev-mcp-test-no-checkdoc--empty-docstring" text))
+      ;; Should be described as a Lisp closure (due to lexical-binding)
+      (should (string-match-p "Lisp closure" text))
+      ;; Should show argument list (uppercase) in the signature
+      (should
+       (string-match-p
+        "elisp-dev-mcp-test-no-checkdoc--empty-docstring X Y)" text))
+      ;; Should show it's in the test file
+      (should
+       (string-match-p "elisp-dev-mcp-test-no-checkdoc\\.el" text))
+      ;; Should show the function signature with arguments
+      (should
+       (string-match-p
+        "elisp-dev-mcp-test-no-checkdoc--empty-docstring X Y)"
+        text)))))
+
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
@@ -563,6 +590,28 @@ D captures remaining arguments."
   (+ x y))")))))
 
 (ert-deftest
+    elisp-dev-mcp-test-get-function-definition-empty-docstring
+    ()
+  "Test `elisp-get-function-definition' with empty docstring functions."
+  (elisp-dev-mcp-test-with-server
+    (let* ((parsed-resp
+            (elisp-dev-mcp-test--get-definition-response-data
+             "elisp-dev-mcp-test-no-checkdoc--empty-docstring"))
+           (source (assoc-default 'source parsed-resp))
+           (file-path (assoc-default 'file-path parsed-resp)))
+
+      (should
+       (string=
+        (file-name-nondirectory file-path)
+        "elisp-dev-mcp-test-no-checkdoc.el"))
+      (should
+       (string=
+        source
+        "(defun elisp-dev-mcp-test-no-checkdoc--empty-docstring (x y)
+  \"\"
+  (+ x y))")))))
+
+(ert-deftest
     elisp-dev-mcp-test-get-interactive-function-definition-no-docstring
     ()
   "Test get-function-definition for dynamically defined function w/o docstring."
@@ -588,6 +637,37 @@ D captures remaining arguments."
                      test-function-name))
                    (source (assoc-default 'source parsed-resp)))
               (should-not (string-match-p "\"" source))))
+
+        ;; Clean up - remove the test function
+        (fmakunbound sym)))))
+
+(ert-deftest
+    elisp-dev-mcp-test-get-interactive-function-definition-empty-docstring
+    ()
+  "Test get-function-definition for dynamically defined function w/ empty docstring."
+  (elisp-dev-mcp-test-with-server
+    ;; Define a function interactively with an empty docstring
+    (let* ((test-function-name
+            "elisp-dev-mcp-test--interactive-empty-docstring")
+           (sym (intern test-function-name)))
+      (unwind-protect
+          (progn
+            ;; Define the test function with empty docstring
+            (eval
+             `(defun ,sym (a b)
+                ""
+                (+ a b)))
+
+            ;; Now try to get its definition and verify specific patterns
+            (elisp-dev-mcp-test--verify-interactive-definition
+             test-function-name '("(a b)" "(\\+ a b)"))
+
+            ;; Additional check: Should contain an empty docstring
+            (let* ((parsed-resp
+                    (elisp-dev-mcp-test--get-definition-response-data
+                     test-function-name))
+                   (source (assoc-default 'source parsed-resp)))
+              (should (string-match-p "\"\"" source))))
 
         ;; Clean up - remove the test function
         (fmakunbound sym)))))
