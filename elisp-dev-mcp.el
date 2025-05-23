@@ -75,6 +75,53 @@ FILE-PATH, START-LINE, and END-LINE specify source location information."
 Use elisp-describe-function tool to get its docstring."
                 fn-name)))))
 
+(defun elisp-dev-mcp--extract-function-body (fn has-doc)
+  "Extract body from function object FN.
+HAS-DOC indicates whether the function has a docstring."
+  (cond
+   ;; Emacs 30+ interpreted-function objects
+   ((eq (type-of fn) 'interpreted-function)
+    ;; Extract body from interpreted-function
+    ;; Format: #[args body env bytecode doc]
+    (aref fn 1))
+   ;; Emacs 29 and earlier cons-based functions
+   ((consp fn)
+    (nthcdr
+     (if has-doc
+         3
+       2)
+     fn))
+   ;; Fallback for other types
+   (t
+    (mcp-tool-throw
+     (format "Don't know how to extract body from function type: %s"
+             (type-of fn))))))
+
+(defun elisp-dev-mcp--reconstruct-function-definition
+    (fn-name args doc body)
+  "Reconstruct a function definition from its runtime components.
+This is used for interactively defined functions where the source file
+is not available.  Creates a synthetic defun form.
+
+FN-NAME is the function name as a string.
+ARGS is the argument list.
+DOC is the documentation string (can be empty).
+BODY is the list of body expressions."
+  (with-temp-buffer
+    (insert "(defun " fn-name)
+    (if args
+        (insert " " (prin1-to-string args))
+      (insert " ()"))
+    (when doc
+      (insert "\n  " (prin1-to-string doc)))
+    (if body
+        (dolist (expr body)
+          (insert "\n  " (pp-to-string expr)))
+      (mcp-tool-throw
+       (format "Failed to extract body for function %s" fn-name)))
+    (insert ")")
+    (buffer-string)))
+
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
 
@@ -103,53 +150,15 @@ MCP Parameters:
                  (format "'%s" function) ; create minimal source
                  function aliased-to "<interactively defined>" 1 1)
               ;; Regular interactively defined functions
-              (let*
-                  ((args (help-function-arglist sym t))
-                   (doc (or (documentation sym) ""))
-                   (body
-                    (and
-                     (functionp fn)
-                     (cond
-                      ;; Emacs 30+ interpreted-function objects
-                      ((eq (type-of fn) 'interpreted-function)
-                       ;; Extract body from interpreted-function
-                       ;; Format: #[args body env bytecode doc]
-                       (aref fn 1))
-                      ;; Emacs 29 and earlier cons-based functions
-                      ((consp fn)
-                       (nthcdr
-                        (if doc
-                            3
-                          2)
-                        fn))
-                      ;; Fallback for other types
-                      (t
-                       (mcp-tool-throw
-                        (format
-                         "Don't know how to extract body from function type: %s"
-                         (type-of fn)))))))
-                   ;; Format args list as a string
-                   (args-str
-                    (if args
-                        (format " %s" (prin1-to-string args))
-                      " ()"))
-                   ;; Use pp for prettier formatting of the decompiled function
-                   (func-def
-                    (with-temp-buffer
-                      ;; Start the defun with proper args
-                      (insert "(defun " function args-str)
-                      ;; Add the docstring
-                      (when doc
-                        (insert "\n  " (prin1-to-string doc)))
-                      ;; Add the body with proper formatting
-                      (if body
-                          (dolist (expr body)
-                            (insert "\n  " (pp-to-string expr)))
-                        ;; Fallback if body extraction failed
-                        (insert "\n  'body"))
-                      ;; Close the defun
-                      (insert ")")
-                      (buffer-string))))
+              (let* ((args (help-function-arglist sym t))
+                     (doc (or (documentation sym) ""))
+                     (body
+                      (and (functionp fn)
+                           (elisp-dev-mcp--extract-function-body
+                            fn doc)))
+                     (func-def
+                      (elisp-dev-mcp--reconstruct-function-definition
+                       function args doc body)))
                 (json-encode
                  `((source . ,func-def)
                    (file-path . "<interactively defined>")
