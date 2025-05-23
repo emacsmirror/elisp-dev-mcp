@@ -64,6 +64,17 @@ FILE-PATH, START-LINE, and END-LINE specify source location information."
          (start-line . ,start-line)
          (end-line . ,end-line))))))
 
+(defun elisp-dev-mcp--get-function-definition-c-function (fn-name)
+  "Return response for C-implemented FN-NAME in get-function-definition."
+  (json-encode
+   `((is-c-function . t)
+     (function-name . ,fn-name)
+     (message .
+              ,(format
+                "Function `%s` is implemented in C source code. \
+Use elisp-describe-function tool to get its docstring."
+                fn-name)))))
+
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
 
@@ -80,15 +91,7 @@ MCP Parameters:
 
     ;; Special handling for C-implemented functions (subrp)
     (if (subrp fn)
-        (json-encode
-         `((is-c-function . t)
-           (function-name . ,function)
-           (message
-            .
-            ,(format
-              "Function `%s` is implemented in C source code. \
-Use elisp-describe-function tool to get its docstring."
-              function))))
+        (elisp-dev-mcp--get-function-definition-c-function function)
 
       ;; Regular Elisp function handling
       (let ((func-file (find-lisp-object-file-name sym 'defun)))
