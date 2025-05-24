@@ -159,12 +159,14 @@ MCP Parameters:
       (let* ((sym (intern variable))
              (type (type-of (symbol-value sym)))
              (doc
-              (documentation-property sym 'variable-documentation)))
+              (documentation-property sym 'variable-documentation))
+             (file (find-lisp-object-file-name sym 'defvar)))
         (json-encode
          `((name . ,variable)
            (bound . t)
            (value-type . ,(symbol-name type))
-           (documentation . ,doc))))
+           (documentation . ,doc)
+           (source-file . ,(or file "<interactively defined>")))))
     (void-variable
      (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 

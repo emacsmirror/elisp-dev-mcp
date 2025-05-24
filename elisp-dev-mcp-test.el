@@ -926,7 +926,43 @@ X and Y are dynamically scoped arguments."
       (should
        (string=
         (assoc-default 'documentation parsed)
-        "A custom variable for testing.")))))
+        "A custom variable for testing."))
+      ;; Should show it's in the test file
+      (let ((source-file (assoc-default 'source-file parsed)))
+        (should (stringp source-file))
+        (should
+         (string-match-p "elisp-dev-mcp-test\\.el" source-file))))))
+
+(ert-deftest elisp-dev-mcp-test-describe-interactive-variable ()
+  "Test `describe-variable' MCP handler with interactively defined variables."
+  (elisp-dev-mcp-test-with-server
+    ;; Define a variable interactively (not from a file)
+    (eval
+     '(defvar elisp-dev-mcp-test--interactive-var 123
+        "An interactively defined variable."))
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--interactive-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      ;; Check the response
+      (should
+       (string=
+        (assoc-default 'name parsed)
+        "elisp-dev-mcp-test--interactive-var"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "integer"))
+      (should
+       (string=
+        (assoc-default 'documentation parsed)
+        "An interactively defined variable."))
+      (should
+       (string=
+        (assoc-default 'source-file parsed)
+        "<interactively defined>")))))
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
