@@ -160,8 +160,10 @@ MCP Parameters:
          (file (find-lisp-object-file-name sym 'defvar))
          (custom-p (custom-variable-p sym))
          (obsolete (get sym 'byte-obsolete-variable))
-         (bound-p (boundp sym)))
-    (if (or bound-p doc file custom-p obsolete)
+         (bound-p (boundp sym))
+         (alias-target (indirect-variable sym))
+         (is-alias (not (eq sym alias-target))))
+    (if (or bound-p doc file custom-p obsolete is-alias)
         (json-encode
          `((name . ,variable)
            (bound
@@ -186,10 +188,18 @@ MCP Parameters:
             ,(if obsolete
                  t
                :json-false))
+           (is-alias
+            .
+            ,(if is-alias
+                 t
+               :json-false))
            ,@
            (when obsolete
              `((obsolete-since . ,(nth 2 obsolete))
-               (obsolete-replacement . ,(nth 0 obsolete))))))
+               (obsolete-replacement . ,(nth 0 obsolete))))
+           ,@
+           (when is-alias
+             `((alias-target . ,(symbol-name alias-target))))))
       (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 
 (defun elisp-dev-mcp--get-function-definition-from-file

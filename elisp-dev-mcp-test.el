@@ -74,6 +74,9 @@ X is the input value that will be doubled."
   :type 'string
   :group 'elisp-dev-mcp)
 
+(defvaralias 'elisp-dev-mcp-test--alias-var 'elisp-dev-mcp-test--custom-var
+  "An alias for the custom variable.")
+
 (defvar elisp-dev-mcp-test--obsolete-var "old-value"
   "An obsolete variable for testing.")
 (make-obsolete-variable
@@ -1036,6 +1039,32 @@ X and Y are dynamically scoped arguments."
          (string-match-p "elisp-dev-mcp-test\\.el" source-file)))
       (should (eq (assoc-default 'is-custom parsed) :json-false))
       (should (eq (assoc-default 'is-obsolete parsed) :json-false)))))
+
+(ert-deftest elisp-dev-mcp-test-describe-variable-alias ()
+  "Test `describe-variable' MCP handler with variable aliases."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--alias-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should
+       (string=
+        (assoc-default 'name parsed) "elisp-dev-mcp-test--alias-var"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "string"))
+      (should
+       (string=
+        (assoc-default 'documentation parsed)
+        "An alias for the custom variable."))
+      (should (eq (assoc-default 'is-alias parsed) t))
+      (should
+       (string=
+        (assoc-default 'alias-target parsed)
+        "elisp-dev-mcp-test--custom-var")))))
 
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()

@@ -67,6 +67,8 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. St
   - =is-obsolete=: Whether the variable is marked obsolete (boolean)
   - =obsolete-since=: Version when the variable became obsolete (string, only present if obsolete)
   - =obsolete-replacement=: Suggested replacement for the obsolete variable (string, only present if obsolete)
+  - =is-alias=: Whether the variable is an alias for another variable (boolean)
+  - =alias-target=: The variable this is an alias for (string, only present if alias)
   - or =error=: Error message if something went wrong (string)
 
 * License
