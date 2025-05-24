@@ -161,7 +161,8 @@ MCP Parameters:
              (doc
               (documentation-property sym 'variable-documentation))
              (file (find-lisp-object-file-name sym 'defvar))
-             (custom-p (custom-variable-p sym)))
+             (custom-p (custom-variable-p sym))
+             (obsolete (get sym 'byte-obsolete-variable)))
         (json-encode
          `((name . ,variable)
            (bound . t)
@@ -172,7 +173,16 @@ MCP Parameters:
             .
             ,(if custom-p
                  t
-               :json-false)))))
+               :json-false))
+           (is-obsolete
+            .
+            ,(if obsolete
+                 t
+               :json-false))
+           ,@
+           (when obsolete
+             `((obsolete-since . ,(nth 2 obsolete))
+               (obsolete-replacement . ,(nth 0 obsolete)))))))
     (void-variable
      (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 

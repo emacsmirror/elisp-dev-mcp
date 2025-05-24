@@ -74,6 +74,11 @@ X is the input value that will be doubled."
   :type 'string
   :group 'elisp-dev-mcp)
 
+(defvar elisp-dev-mcp-test--obsolete-var "old-value"
+  "An obsolete variable for testing.")
+(make-obsolete-variable
+ 'elisp-dev-mcp-test--obsolete-var 'elisp-dev-mcp-test--new-var "1.0")
+
 ;;; Helpers to create JSON requests
 
 (defun elisp-dev-mcp-test--check-closure-text (text)
@@ -967,6 +972,38 @@ X and Y are dynamically scoped arguments."
        (string=
         (assoc-default 'source-file parsed)
         "<interactively defined>")))))
+
+(ert-deftest elisp-dev-mcp-test-describe-obsolete-variable ()
+  "Test `describe-variable' MCP handler with obsolete variables."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--obsolete-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      ;; Check the response
+      (should
+       (string=
+        (assoc-default 'name parsed)
+        "elisp-dev-mcp-test--obsolete-var"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "string"))
+      (should
+       (string=
+        (assoc-default 'documentation parsed)
+        "An obsolete variable for testing."))
+      ;; Should indicate it's obsolete
+      (should (eq (assoc-default 'is-obsolete parsed) t))
+      ;; Should include obsolete metadata
+      (should (string= (assoc-default 'obsolete-since parsed) "1.0"))
+      (should
+       (string=
+        (assoc-default 'obsolete-replacement parsed)
+        "elisp-dev-mcp-test--new-var")))))
+
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
