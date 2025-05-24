@@ -69,6 +69,11 @@ X is the input value that will be doubled."
 
 (defvar elisp-dev-mcp-test--undocumented-var)
 
+(defcustom elisp-dev-mcp-test--custom-var "default"
+  "A custom variable for testing."
+  :type 'string
+  :group 'elisp-dev-mcp)
+
 ;;; Helpers to create JSON requests
 
 (defun elisp-dev-mcp-test--check-closure-text (text)
@@ -899,6 +904,29 @@ X and Y are dynamically scoped arguments."
       (should (string= (assoc-default 'value-type parsed) "symbol"))
       ;; Empty docstring should be returned as empty string
       (should (string= (assoc-default 'documentation parsed) "")))))
+
+(ert-deftest elisp-dev-mcp-test-describe-custom-variable ()
+  "Test `describe-variable' MCP handler with custom variables."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--custom-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      ;; Check the response
+      (should
+       (string=
+        (assoc-default 'name parsed)
+        "elisp-dev-mcp-test--custom-var"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "string"))
+      (should
+       (string=
+        (assoc-default 'documentation parsed)
+        "A custom variable for testing.")))))
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
