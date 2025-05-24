@@ -323,14 +323,15 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
-\(describe-function-tool get-definition-tool).
+\(describe-function-tool get-definition-tool describe-variable-tool).
 Any tool not found will be nil in the list."
   (let* ((req (mcp-create-tools-list-request))
          (resp (elisp-dev-mcp-test--send-req req))
          (result (assoc-default 'result resp))
          (tools (assoc-default 'tools result))
          (describe-function-tool nil)
-         (get-definition-tool nil))
+         (get-definition-tool nil)
+         (describe-variable-tool nil))
 
     ;; Find our tools in the list
     (dotimes (i (length tools))
@@ -340,9 +341,14 @@ Any tool not found will be nil in the list."
          ((string= name "elisp-describe-function")
           (setq describe-function-tool tool))
          ((string= name "elisp-get-function-definition")
-          (setq get-definition-tool tool)))))
+          (setq get-definition-tool tool))
+         ((string= name "elisp-describe-variable")
+          (setq describe-variable-tool tool)))))
 
-    (list describe-function-tool get-definition-tool)))
+    (list
+     describe-function-tool
+     get-definition-tool
+     describe-variable-tool)))
 
 (ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
     ()
@@ -356,15 +362,20 @@ Any tool not found will be nil in the list."
         ;; Check tool registration
         (let* ((tools (elisp-dev-mcp-test--find-tools-in-tools-list))
                (describe-function-tool (nth 0 tools))
-               (get-definition-tool (nth 1 tools)))
+               (get-definition-tool (nth 1 tools))
+               (describe-variable-tool (nth 2 tools)))
 
           ;; Verify all tools are registered
           (should describe-function-tool)
           (should get-definition-tool)
+          (should describe-variable-tool)
 
           ;; Verify read-only annotations for all tools
           (dolist (tool
-                   (list describe-function-tool get-definition-tool))
+                   (list
+                    describe-function-tool
+                    get-definition-tool
+                    describe-variable-tool))
             (let ((annotations (assoc-default 'annotations tool)))
               (should annotations)
               (should
@@ -378,6 +389,7 @@ Any tool not found will be nil in the list."
                  (elisp-dev-mcp-test--find-tools-in-tools-list)))
             (should-not (nth 0 tools)) ;; describe-function should be gone
             (should-not (nth 1 tools)) ;; get-definition should be gone
+            (should-not (nth 2 tools)) ;; describe-variable should be gone
             )))
 
     ;; Clean up
