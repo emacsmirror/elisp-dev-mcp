@@ -59,7 +59,7 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. St
   - =variable=: The name of the variable to describe (string)
 - Returns:
   - =name=: Variable name (string)
-  - =bound=: Whether variable is currently bound (boolean)
+  - =bound=: Whether variable is currently bound (boolean, false for declared but unbound variables)
   - =value-type=: Type of the value (string, e.g. "cons", "string", "integer")
   - =documentation=: Variable documentation or null if none (string or null)
   - =source-file=: Path to the file where the variable is defined (string)

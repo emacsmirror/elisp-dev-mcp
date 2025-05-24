@@ -155,18 +155,25 @@ MCP Parameters:
   variable - The name of the variable to describe"
   (unless (stringp variable)
     (mcp-tool-throw "Invalid variable name"))
-  (condition-case nil
-      (let* ((sym (intern variable))
-             (type (type-of (symbol-value sym)))
-             (doc
-              (documentation-property sym 'variable-documentation))
-             (file (find-lisp-object-file-name sym 'defvar))
-             (custom-p (custom-variable-p sym))
-             (obsolete (get sym 'byte-obsolete-variable)))
+  (let* ((sym (intern variable))
+         (doc (documentation-property sym 'variable-documentation))
+         (file (find-lisp-object-file-name sym 'defvar))
+         (custom-p (custom-variable-p sym))
+         (obsolete (get sym 'byte-obsolete-variable))
+         (bound-p (boundp sym)))
+    (if (or bound-p doc file custom-p obsolete)
         (json-encode
          `((name . ,variable)
-           (bound . t)
-           (value-type . ,(symbol-name type))
+           (bound
+            .
+            ,(if bound-p
+                 t
+               :json-false))
+           ,@
+           (when bound-p
+             `((value-type
+                .
+                ,(symbol-name (type-of (symbol-value sym))))))
            (documentation . ,doc)
            (source-file . ,(or file "<interactively defined>"))
            (is-custom
@@ -182,9 +189,8 @@ MCP Parameters:
            ,@
            (when obsolete
              `((obsolete-since . ,(nth 2 obsolete))
-               (obsolete-replacement . ,(nth 0 obsolete)))))))
-    (void-variable
-     (mcp-tool-throw (format "Variable %s is not bound" variable)))))
+               (obsolete-replacement . ,(nth 0 obsolete))))))
+      (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 
 (defun elisp-dev-mcp--get-function-definition-from-file
     (fn-name sym func-file is-alias aliased-to)

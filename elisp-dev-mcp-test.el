@@ -79,6 +79,10 @@ X is the input value that will be doubled."
 (make-obsolete-variable
  'elisp-dev-mcp-test--obsolete-var 'elisp-dev-mcp-test--new-var "1.0")
 
+(defvar elisp-dev-mcp-test--unbound-documented-var nil
+  "A documented variable that will be unbound for testing.")
+(makunbound 'elisp-dev-mcp-test--unbound-documented-var)
+
 ;;; Helpers to create JSON requests
 
 (defun elisp-dev-mcp-test--check-closure-text (text)
@@ -1003,6 +1007,35 @@ X and Y are dynamically scoped arguments."
        (string=
         (assoc-default 'obsolete-replacement parsed)
         "elisp-dev-mcp-test--new-var")))))
+
+(ert-deftest elisp-dev-mcp-test-describe-unbound-documented-variable
+    ()
+  "Test `describe-variable' MCP handler with unbound but documented variables."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable" 1
+             `((variable
+                . "elisp-dev-mcp-test--unbound-documented-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should
+       (string=
+        (assoc-default 'name parsed)
+        "elisp-dev-mcp-test--unbound-documented-var"))
+      (should (eq (assoc-default 'bound parsed) :json-false))
+      (should-not (assoc-default 'value-type parsed))
+      (should
+       (string=
+        (assoc-default 'documentation parsed)
+        "A documented variable that will be unbound for testing."))
+      (let ((source-file (assoc-default 'source-file parsed)))
+        (should (stringp source-file))
+        (should
+         (string-match-p "elisp-dev-mcp-test\\.el" source-file)))
+      (should (eq (assoc-default 'is-custom parsed) :json-false))
+      (should (eq (assoc-default 'is-obsolete parsed) :json-false)))))
 
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
