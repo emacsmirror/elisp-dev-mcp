@@ -52,6 +52,18 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. St
     - =function-name=: The name of the function (string)
     - =message=: A message indicating the function is implemented in C source code (string)
 
+*** Elisp Variable Description
+- Name: =elisp-describe-variable=
+- Description: Get information about an Emacs Lisp variable without exposing its value
+- Parameters:
+  - =variable=: The name of the variable to describe (string)
+- Returns:
+  - =name=: Variable name (string)
+  - =bound=: Whether variable is currently bound (boolean)
+  - =value-type=: Type of the value (string, e.g. "cons", "string", "integer")
+  - =documentation=: Variable documentation or null if none (string or null)
+  - or =error=: Error message if something went wrong (string)
+
 * License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the LICENSE file for details.
