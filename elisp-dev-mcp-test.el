@@ -880,7 +880,9 @@ X and Y are dynamically scoped arguments."
       (should (eq (assoc-default 'bound parsed) t))
       (should (string= (assoc-default 'value-type parsed) "integer"))
       ;; Documentation should be null for undocumented variables
-      (should (null (assoc-default 'documentation parsed))))))
+      (should (null (assoc-default 'documentation parsed)))
+      ;; Should NOT be a custom variable
+      (should (eq (assoc-default 'is-custom parsed) :json-false)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-empty-docstring ()
   "Test `describe-variable' MCP handler with empty docstring variables."
@@ -931,7 +933,9 @@ X and Y are dynamically scoped arguments."
       (let ((source-file (assoc-default 'source-file parsed)))
         (should (stringp source-file))
         (should
-         (string-match-p "elisp-dev-mcp-test\\.el" source-file))))))
+         (string-match-p "elisp-dev-mcp-test\\.el" source-file)))
+      ;; Should indicate it's a custom variable
+      (should (eq (assoc-default 'is-custom parsed) t)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-interactive-variable ()
   "Test `describe-variable' MCP handler with interactively defined variables."
