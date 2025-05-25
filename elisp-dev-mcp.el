@@ -23,6 +23,25 @@
   "Return t if DOC is a non-empty documentation string, nil otherwise."
   (and doc (not (string-empty-p doc))))
 
+(defun elisp-dev-mcp--json-encode-source-location
+    (source file-path start-line end-line)
+  "Encode a source location response as JSON.
+SOURCE is the source code string.
+FILE-PATH is the absolute path to the source file.
+START-LINE and END-LINE are 1-based line numbers."
+  (json-encode
+   `((source . ,source)
+     (file-path . ,file-path)
+     (start-line . ,start-line)
+     (end-line . ,end-line))))
+
+(defun elisp-dev-mcp--json-encode-not-found (symbol message)
+  "Encode a not-found response as JSON.
+SYMBOL is the symbol that was looked up.
+MESSAGE is the error or not-found message."
+  (json-encode
+   `((found . :json-false) (symbol . ,symbol) (message . ,message))))
+
 (defun elisp-dev-mcp--describe-function (function)
   "Get full documentation for Emacs Lisp FUNCTION.
 
@@ -57,17 +76,11 @@ FILE-PATH, START-LINE, and END-LINE specify source location information."
                        function
                        aliased-to
                        doc)))
-          (json-encode
-           `((source . ,func-def)
-             (file-path . ,file-path)
-             (start-line . ,start-line)
-             (end-line . ,end-line))))
+          (elisp-dev-mcp--json-encode-source-location
+           func-def file-path start-line end-line))
       ;; Pass through original source
-      (json-encode
-       `((source . ,source)
-         (file-path . ,file-path)
-         (start-line . ,start-line)
-         (end-line . ,end-line))))))
+      (elisp-dev-mcp--json-encode-source-location
+       source file-path start-line end-line))))
 
 (defun elisp-dev-mcp--get-function-definition-c-function (fn-name)
   "Return response for C-implemented FN-NAME in get-function-definition."
@@ -143,11 +156,8 @@ Returns JSON response for an interactively defined function."
          (func-def
           (elisp-dev-mcp--reconstruct-function-definition
            fn-name args doc body)))
-    (json-encode
-     `((source . ,func-def)
-       (file-path . "<interactively defined>")
-       (start-line . 1)
-       (end-line . 1)))))
+    (elisp-dev-mcp--json-encode-source-location
+     func-def "<interactively defined>" 1 1)))
 
 (defun elisp-dev-mcp--find-custom-group (sym)
   "Find the custom group that contain variable SYM.
@@ -288,11 +298,8 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
         (if is-alias
             (elisp-dev-mcp--process-alias-source
              source fn-name aliased-to func-file start-line end-line)
-          (json-encode
-           `((source . ,source)
-             (file-path . ,func-file)
-             (start-line . ,start-line)
-             (end-line . ,end-line))))))))
+          (elisp-dev-mcp--json-encode-source-location
+           source func-file start-line end-line))))))
 
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
@@ -434,14 +441,11 @@ MCP Parameters:
         (let ((result (elisp-dev-mcp--perform-info-lookup symbol)))
           (if result
               (json-encode result)
-            (json-encode
-             `((found . :json-false)
-               (symbol . ,symbol)
-               (message
-                .
-                ,(format
-                  "Symbol '%s' not found in Elisp Info documentation"
-                  symbol)))))))
+            (elisp-dev-mcp--json-encode-not-found
+             symbol
+             (format
+              "Symbol '%s' not found in Elisp Info documentation"
+              symbol)))))
     (error (mcp-tool-throw (format "Error: %S" err)))))
 
 ;;;###autoload
