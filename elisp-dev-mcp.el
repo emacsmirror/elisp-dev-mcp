@@ -19,6 +19,9 @@
 (require 'pp)
 (require 'info-look)
 
+
+;;; Utility Functions
+
 (defun elisp-dev-mcp--non-empty-docstring-p (doc)
   "Return t if DOC is a non-empty documentation string, nil otherwise."
   (and doc (not (string-empty-p doc))))
@@ -67,8 +70,8 @@ Throws an error if validation fails."
 
 ;;; Property Collection
 
-(defun elisp-dev-mcp--get-function-properties (sym)
-  "Collect all properties for function symbol SYM.
+(defun elisp-dev-mcp--extract-function-properties (sym)
+  "Extract all properties for function symbol SYM.
 Returns an alist of properties or nil if not a function."
   (when (fboundp sym)
     (let* ((fn (symbol-function sym))
@@ -87,8 +90,10 @@ Returns an alist of properties or nil if not a function."
         (file . ,(find-lisp-object-file-name sym 'defun))))))
 
 (defun elisp-dev-mcp--json-bool (value)
-  "Convert elisp boolean VALUE to JSON boolean representation.
-Returns t for truthy values, :json-false for falsy values."
+  "Convert Elisp boolean VALUE to JSON boolean representation.
+In Elisp, nil is false and everything else is true.
+For JSON encoding, returns t for truthy values and :json-false for nil.
+This ensures proper JSON boolean serialization."
   (if value
       t
     :json-false))
@@ -198,20 +203,16 @@ FN-NAME is the function name as a string.
 ARGS is the argument list.
 DOC is the documentation string (can be empty).
 BODY is the list of body expressions."
-  (with-temp-buffer
-    (insert "(defun " fn-name)
-    (if args
-        (insert " " (prin1-to-string args))
-      (insert " ()"))
-    (when (elisp-dev-mcp--non-empty-docstring-p doc)
-      (insert "\n  " (prin1-to-string doc)))
-    (if body
-        (dolist (expr body)
-          (insert "\n  " (pp-to-string expr)))
-      (mcp-tool-throw
-       (format "Failed to extract body for function %s" fn-name)))
-    (insert ")")
-    (buffer-string)))
+  (unless body
+    (mcp-tool-throw
+     (format "Failed to extract body for function %s" fn-name)))
+  (let ((defun-form
+         `(defun ,(intern fn-name) ,(or args '())
+            ,@
+            (when (elisp-dev-mcp--non-empty-docstring-p doc)
+              (list doc))
+            ,@body)))
+    (pp-to-string defun-form)))
 
 (defun elisp-dev-mcp--get-function-definition-interactive
     (fn-name sym fn)
@@ -271,8 +272,8 @@ Returns a list of (source start-line end-line)."
    (line-number-at-pos start-point)
    (line-number-at-pos end-point)))
 
-(defun elisp-dev-mcp--get-variable-properties (sym)
-  "Collect all properties for variable symbol SYM.
+(defun elisp-dev-mcp--extract-variable-properties (sym)
+  "Extract all properties for variable symbol SYM.
 Returns an alist of properties."
   (let* ((doc (documentation-property sym 'variable-documentation))
          (file (find-lisp-object-file-name sym 'defvar))
@@ -347,7 +348,7 @@ VARIABLE is the variable name string, PROPS is an alist of properties."
 MCP Parameters:
   variable - The name of the variable to describe"
   (let* ((sym (elisp-dev-mcp--validate-symbol variable "variable" t))
-         (props (elisp-dev-mcp--get-variable-properties sym)))
+         (props (elisp-dev-mcp--extract-variable-properties sym)))
     (if (elisp-dev-mcp--variable-exists-p props)
         (elisp-dev-mcp--build-variable-json-response variable props)
       (mcp-tool-throw (format "Variable %s is not bound" variable)))))
@@ -397,8 +398,8 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
            (nth 1 source-info)
            (nth 2 source-info)))))))
 
-(defun elisp-dev-mcp--get-function-info (sym)
-  "Get function information for symbol SYM.
+(defun elisp-dev-mcp--extract-function-info (sym)
+  "Extract function information for symbol SYM.
 Returns (fn is-alias aliased-to) or nil if not a function."
   (when (fboundp sym)
     (let* ((fn (symbol-function sym))
@@ -411,7 +412,7 @@ Returns (fn is-alias aliased-to) or nil if not a function."
   "Dispatch to appropriate handler based on function type.
 FUNCTION is the function name string.
 SYM is the function symbol.
-FN-INFO is the result from `elisp-dev-mcp--get-function-info`."
+FN-INFO is the result from `elisp-dev-mcp--extract-function-info`."
   (let ((fn (nth 0 fn-info))
         (is-alias (nth 1 fn-info))
         (aliased-to (nth 2 fn-info)))
@@ -450,7 +451,7 @@ FN-INFO is the result from `elisp-dev-mcp--get-function-info`."
 MCP Parameters:
   function - The name of the function to retrieve"
   (let* ((sym (elisp-dev-mcp--validate-symbol function "function" t))
-         (fn-info (elisp-dev-mcp--get-function-info sym)))
+         (fn-info (elisp-dev-mcp--extract-function-info sym)))
     (unless fn-info
       (mcp-tool-throw (format "Function %s is not found" function)))
     (elisp-dev-mcp--get-function-definition-dispatch
