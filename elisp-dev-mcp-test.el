@@ -74,8 +74,10 @@ X is the input value that will be doubled."
   :type 'string
   :group 'elisp-dev-mcp)
 
-(defvaralias 'elisp-dev-mcp-test--alias-var 'elisp-dev-mcp-test--custom-var
-  "An alias for the custom variable.")
+(defvaralias 'elisp-dev-mcp-test--a 'elisp-dev-mcp-test--b "x")
+
+(defvar elisp-dev-mcp-test--b "test-value"
+  "A regular variable for alias testing.")
 
 (defvar elisp-dev-mcp-test--obsolete-var "old-value"
   "An obsolete variable for testing.")
@@ -1047,24 +1049,34 @@ X and Y are dynamically scoped arguments."
             (mcp-create-tools-call-request
              "elisp-describe-variable"
              1
-             `((variable . "elisp-dev-mcp-test--alias-var"))))
+             `((variable . "elisp-dev-mcp-test--a"))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
            (parsed (json-read-from-string text)))
       (should
-       (string=
-        (assoc-default 'name parsed) "elisp-dev-mcp-test--alias-var"))
+       (string= (assoc-default 'name parsed) "elisp-dev-mcp-test--a"))
       (should (eq (assoc-default 'bound parsed) t))
       (should (string= (assoc-default 'value-type parsed) "string"))
-      (should
-       (string=
-        (assoc-default 'documentation parsed)
-        "An alias for the custom variable."))
+      (should (string= (assoc-default 'documentation parsed) "x"))
       (should (eq (assoc-default 'is-alias parsed) t))
       (should
        (string=
         (assoc-default 'alias-target parsed)
-        "elisp-dev-mcp-test--custom-var")))))
+        "elisp-dev-mcp-test--b")))))
+
+(ert-deftest elisp-dev-mcp-test-describe-special-variable ()
+  "Test `describe-variable' MCP handler with special variables."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable" 1 `((variable . "load-path"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (string= (assoc-default 'name parsed) "load-path"))
+      (should (eq (assoc-default 'bound parsed) t))
+      (should (string= (assoc-default 'value-type parsed) "cons"))
+      (should (eq (assoc-default 'is-special parsed) t)))))
 
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()

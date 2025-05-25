@@ -162,7 +162,8 @@ MCP Parameters:
          (obsolete (get sym 'byte-obsolete-variable))
          (bound-p (boundp sym))
          (alias-target (indirect-variable sym))
-         (is-alias (not (eq sym alias-target))))
+         (is-alias (not (eq sym alias-target)))
+         (is-special (special-variable-p sym)))
     (if (or bound-p doc file custom-p obsolete is-alias)
         (json-encode
          `((name . ,variable)
@@ -197,6 +198,11 @@ MCP Parameters:
            (when obsolete
              `((obsolete-since . ,(nth 2 obsolete))
                (obsolete-replacement . ,(nth 0 obsolete))))
+           (is-special
+            .
+            ,(if is-special
+                 t
+               :json-false))
            ,@
            (when is-alias
              `((alias-target . ,(symbol-name alias-target))))))
