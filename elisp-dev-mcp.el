@@ -1,12 +1,12 @@
 ;;; elisp-dev-mcp.el --- MCP server for agentic Elisp development -*- lexical-binding: t -*-
 
-;; Copyright (C) 2024
+;; Copyright (C) 2024 Laurynas Biveinis
 
-;; Author: You
+;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "28.1"))
 ;; Keywords: tools, development
-;; URL: https://github.com/your-username/elisp-dev-mcp
+;; URL: https://github.com/laurynas-biveinis/elisp-mcp-dev
 
 ;;; Commentary:
 
