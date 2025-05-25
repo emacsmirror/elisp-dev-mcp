@@ -74,6 +74,20 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. St
   - =is-special=: Whether the variable is a special (dynamically scoped) variable (boolean)
   - or =error=: Error message if something went wrong (string)
 
+*** Elisp Info Documentation Lookup
+- Name: =elisp-info-lookup-symbol=
+- Description: Look up Elisp symbols in Info documentation and return the complete documentation node
+- Parameters:
+  - =symbol=: The Elisp symbol to look up (string)
+- Returns:
+  - =found=: Whether documentation was found (boolean)
+  - =symbol=: The symbol that was looked up (string)
+  - =node=: The Info node name containing the documentation (string, when found)
+  - =manual=: The Info manual name, typically 'elisp' (string, when found)
+  - =content=: The complete Info node content including all examples, cross-references, and related information (string, when found)
+  - =info-ref=: Info reference like '(elisp)Node Name' for direct access (string, when found)
+  - =message=: Error or not-found message (string, when not found)
+
 * License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the LICENSE file for details.

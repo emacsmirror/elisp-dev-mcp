@@ -351,7 +351,8 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
-\(describe-function-tool get-definition-tool describe-variable-tool).
+\(describe-function-tool get-definition-tool describe-variable-tool
+info-lookup-tool).
 Any tool not found will be nil in the list."
   (let* ((req (mcp-create-tools-list-request))
          (resp (elisp-dev-mcp-test--send-req req))
@@ -359,7 +360,8 @@ Any tool not found will be nil in the list."
          (tools (assoc-default 'tools result))
          (describe-function-tool nil)
          (get-definition-tool nil)
-         (describe-variable-tool nil))
+         (describe-variable-tool nil)
+         (info-lookup-tool nil))
 
     ;; Find our tools in the list
     (dotimes (i (length tools))
@@ -371,12 +373,15 @@ Any tool not found will be nil in the list."
          ((string= name "elisp-get-function-definition")
           (setq get-definition-tool tool))
          ((string= name "elisp-describe-variable")
-          (setq describe-variable-tool tool)))))
+          (setq describe-variable-tool tool))
+         ((string= name "elisp-info-lookup-symbol")
+          (setq info-lookup-tool tool)))))
 
     (list
      describe-function-tool
      get-definition-tool
-     describe-variable-tool)))
+     describe-variable-tool
+     info-lookup-tool)))
 
 (ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
     ()
@@ -391,19 +396,22 @@ Any tool not found will be nil in the list."
         (let* ((tools (elisp-dev-mcp-test--find-tools-in-tools-list))
                (describe-function-tool (nth 0 tools))
                (get-definition-tool (nth 1 tools))
-               (describe-variable-tool (nth 2 tools)))
+               (describe-variable-tool (nth 2 tools))
+               (info-lookup-tool (nth 3 tools)))
 
           ;; Verify all tools are registered
           (should describe-function-tool)
           (should get-definition-tool)
           (should describe-variable-tool)
+          (should info-lookup-tool)
 
           ;; Verify read-only annotations for all tools
           (dolist (tool
                    (list
                     describe-function-tool
                     get-definition-tool
-                    describe-variable-tool))
+                    describe-variable-tool
+                    info-lookup-tool))
             (let ((annotations (assoc-default 'annotations tool)))
               (should annotations)
               (should
@@ -418,6 +426,7 @@ Any tool not found will be nil in the list."
             (should-not (nth 0 tools)) ;; describe-function should be gone
             (should-not (nth 1 tools)) ;; get-definition should be gone
             (should-not (nth 2 tools)) ;; describe-variable should be gone
+            (should-not (nth 3 tools)) ;; info-lookup should be gone
             )))
 
     ;; Clean up
@@ -1136,6 +1145,116 @@ X and Y are dynamically scoped arguments."
         (should (string-match-p "choice" custom-type))
         (should (string-match-p "option1" custom-type))
         (should (string-match-p "option2" custom-type))))))
+
+(ert-deftest elisp-dev-mcp-test-info-lookup-symbol ()
+  "Test that `elisp-info-lookup-symbol' MCP handler works correctly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-info-lookup-symbol" 1 `((symbol . "defun"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'found parsed) t))
+      (should (string= (assoc-default 'symbol parsed) "defun"))
+      (should (stringp (assoc-default 'node parsed)))
+      (should (string= (assoc-default 'manual parsed) "elisp"))
+      (should (stringp (assoc-default 'content parsed)))
+      (should
+       (string-match-p "defun" (assoc-default 'content parsed)))
+      (should (stringp (assoc-default 'info-ref parsed)))
+      (should
+       (string-match-p "(elisp)" (assoc-default 'info-ref parsed))))))
+
+(ert-deftest elisp-dev-mcp-test-info-lookup-nonexistent-symbol ()
+  "Test that `elisp-info-lookup-symbol' handles non-existent symbols."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-info-lookup-symbol"
+             1
+             `((symbol . "non-existent-symbol-xyz"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'found parsed) :json-false))
+      (should
+       (string=
+        (assoc-default 'symbol parsed) "non-existent-symbol-xyz"))
+      (should (stringp (assoc-default 'message parsed)))
+      (should
+       (string-match-p
+        "not found" (assoc-default 'message parsed))))))
+
+(ert-deftest elisp-dev-mcp-test-info-lookup-empty-string ()
+  "Test that `elisp-info-lookup-symbol' handles empty string properly."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-info-lookup-symbol" 1 `((symbol . ""))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid symbol name"))))
+
+(ert-deftest elisp-dev-mcp-test-info-lookup-invalid-type ()
+  "Test that `elisp-info-lookup-symbol' handles non-string symbols."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-info-lookup-symbol" 1 `((symbol . 123))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid symbol name"))))
+
+(ert-deftest elisp-dev-mcp-test-info-lookup-function ()
+  "Test `elisp-info-lookup-symbol' with a well-known function."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-info-lookup-symbol" 1 `((symbol . "mapcar"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'found parsed) t))
+      (should (string= (assoc-default 'symbol parsed) "mapcar"))
+      (should (stringp (assoc-default 'node parsed)))
+      (let ((content (assoc-default 'content parsed)))
+        (should (stringp content))
+        (should (string-match-p "mapcar" content))
+        (should (string-match-p "FUNCTION" content))
+        (should (string-match-p "SEQUENCE" content))))))
+
+(ert-deftest elisp-dev-mcp-test-info-lookup-special-form ()
+  "Test `elisp-info-lookup-symbol' with a special form."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-info-lookup-symbol" 1 `((symbol . "let"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'found parsed) t))
+      (should (string= (assoc-default 'symbol parsed) "let"))
+      (let ((content (assoc-default 'content parsed)))
+        (should (stringp content))
+        (should (string-match-p "let" content))
+        (should (string-match-p "binding" content))))))
+
+(ert-deftest elisp-dev-mcp-test-info-lookup-variable ()
+  "Test `elisp-info-lookup-symbol' with a variable."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-info-lookup-symbol" 1 `((symbol . "load-path"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'found parsed) t))
+      (should (string= (assoc-default 'symbol parsed) "load-path"))
+      (let ((content (assoc-default 'content parsed)))
+        (should (stringp content))
+        (should (string-match-p "load-path" content))
+        (should (string-match-p "directories" content))))))
 
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()

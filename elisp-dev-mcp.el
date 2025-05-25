@@ -17,6 +17,7 @@
 (require 'mcp)
 (require 'help-fns)
 (require 'pp)
+(require 'info-look)
 
 (defun elisp-dev-mcp--non-empty-docstring-p (doc)
   "Return t if DOC is a non-empty documentation string, nil otherwise."
@@ -328,6 +329,121 @@ MCP Parameters:
           (elisp-dev-mcp--get-function-definition-from-file
            function sym func-file is-alias aliased-to))))))
 
+(defun elisp-dev-mcp--extract-info-node-content ()
+  "Extract the complete content of the current Info node.
+Assumes we're in an Info buffer at the correct node."
+  (let ((start nil)
+        (end nil))
+    ;; Find the start of actual content (after the node header)
+    (goto-char (point-min))
+    (when (re-search-forward "^File: [^,]+,  Node: [^,\n]+.*\n" nil t)
+      (setq start (point)))
+
+    ;; Find the end of content
+    (when start
+      (goto-char start)
+      ;; Look for the next node boundary or end of buffer
+      (if (re-search-forward "^\^_" nil t)
+          (setq end (match-beginning 0))
+        (setq end (point-max))))
+
+    ;; Extract and clean up the content
+    (when (and start end)
+      (elisp-dev-mcp--clean-info-content
+       (buffer-substring-no-properties start end)))))
+
+(defun elisp-dev-mcp--clean-info-content (content)
+  "Clean up Info formatting from CONTENT.
+Removes navigation markers while preserving documentation structure."
+  (with-temp-buffer
+    (insert content)
+    (goto-char (point-min))
+
+    ;; Remove footnote references like (*note ...)
+    (while (re-search-forward "\\*[Nn]ote[ \n][^:]*::" nil t)
+      (replace-match "[See: \\&]"))
+
+    ;; Return cleaned content
+    (buffer-string)))
+
+(defun elisp-dev-mcp--perform-info-lookup (symbol)
+  "Perform the actual Info lookup for SYMBOL.
+Returns an alist with lookup results or nil if not found."
+  (condition-case nil
+      (with-temp-buffer
+        ;; Set up for info-lookup
+        (let ((mode 'emacs-lisp-mode)
+              (info-buf nil)
+              (node nil)
+              (manual nil)
+              (content nil))
+
+          ;; info-lookup-symbol needs a buffer in the right mode
+          (emacs-lisp-mode)
+
+          ;; Perform the lookup - this will open an Info buffer
+          (save-window-excursion
+            (info-lookup-symbol symbol mode)
+
+            ;; Get the Info buffer that was opened
+            (setq info-buf (get-buffer "*info*"))
+
+            (when info-buf
+              (with-current-buffer info-buf
+                ;; Extract node information
+                (goto-char (point-min))
+                (when (re-search-forward
+                       "^File: \\([^,]+\\),  Node: \\([^,\n]+\\)"
+                       nil t)
+                  (setq manual (match-string 1))
+                  (setq node (match-string 2))
+                  ;; Remove .info extension if present
+                  (when (string-match "\\.info\\'" manual)
+                    (setq manual
+                          (substring manual 0 (match-beginning 0)))))
+
+                ;; Extract content
+                (setq content
+                      (elisp-dev-mcp--extract-info-node-content)))))
+
+          ;; Return results if we found something
+          (when (and node content)
+            `((found . t)
+              (symbol . ,symbol)
+              (node . ,node)
+              (manual . ,manual)
+              (content . ,content)
+              (info-ref . ,(format "(%s)%s" manual node))))))
+    ;; If lookup fails, return nil
+    (error nil)))
+
+(defun elisp-dev-mcp--info-lookup-symbol (symbol)
+  "Look up SYMBOL in Elisp Info documentation.
+
+MCP Parameters:
+  symbol - The symbol to look up (string)"
+  (condition-case err
+      (progn
+        ;; Validate input
+        (unless (stringp symbol)
+          (mcp-tool-throw "Invalid symbol name"))
+        (when (string-empty-p symbol)
+          (mcp-tool-throw "Invalid symbol name"))
+
+        ;; Perform lookup
+        (let ((result (elisp-dev-mcp--perform-info-lookup symbol)))
+          (if result
+              (json-encode result)
+            (json-encode
+             `((found . :json-false)
+               (symbol . ,symbol)
+               (message
+                .
+                ,(format
+                  "Symbol '%s' not found in Elisp Info documentation"
+                  symbol)))))))
+    (error (mcp-tool-throw (format "Error: %S" err)))))
+
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
   "Enable the Elisp development MCP tools."
@@ -436,6 +552,47 @@ eval when exploring variables.
 Error cases return error messages for:
 - Non-string input
 - Completely undefined variables (no binding, no documentation, no properties)"
+   :read-only t)
+  (mcp-register-tool
+   #'elisp-dev-mcp--info-lookup-symbol
+   :id "elisp-info-lookup-symbol"
+   :description
+   "Look up Elisp symbols in Info documentation and return the complete
+documentation node. Returns the full content of the Info node containing
+the symbol's documentation from the Emacs Lisp Reference Manual.
+
+Parameters:
+  symbol - The Elisp symbol to look up (string)
+
+Returns JSON with:
+  found - Whether documentation was found (boolean)
+  symbol - The symbol that was looked up (string)
+  node - The Info node name containing the documentation (string, when found)
+  manual - The Info manual name, typically 'elisp' (string, when found)
+  content - The complete Info node content including all examples,
+            cross-references, and related information (string, when found)
+  info-ref - Info reference like '(elisp)Node Name' for direct access
+             (string, when found)
+  message - Error or not-found message (string, when not found)
+
+The content field contains the entire Info node, ensuring you have full
+context including:
+- Complete function/variable descriptions
+- All code examples and usage patterns
+- Cross-references to related concepts
+- Any warnings, notes, or special considerations
+
+Common symbols that can be looked up:
+- Special forms: defun, defvar, let, if, cond, lambda
+- Functions: mapcar, apply, funcall, concat
+- Macros: when, unless, dolist, defmacro
+- Variables: load-path, emacs-version
+- Concepts: 'lexical binding', 'dynamic binding'
+
+Error cases:
+- Symbol not found in documentation
+- Invalid symbol name
+- Info system unavailable"
    :read-only t))
 
 ;;;###autoload
@@ -443,7 +600,8 @@ Error cases return error messages for:
   "Disable the Elisp development MCP tools."
   (mcp-unregister-tool "elisp-describe-function")
   (mcp-unregister-tool "elisp-get-function-definition")
-  (mcp-unregister-tool "elisp-describe-variable"))
+  (mcp-unregister-tool "elisp-describe-variable")
+  (mcp-unregister-tool "elisp-info-lookup-symbol"))
 
 (provide 'elisp-dev-mcp)
 ;;; elisp-dev-mcp.el ends here
