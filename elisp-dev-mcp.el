@@ -51,6 +51,24 @@ Throws an error if validation fails."
   (when (string-empty-p name)
     (mcp-tool-throw (format "Empty %s name" type))))
 
+(defun elisp-dev-mcp--json-bool (value)
+  "Convert elisp boolean VALUE to JSON boolean representation.
+Returns t for truthy values, :json-false for falsy values."
+  (if value
+      t
+    :json-false))
+
+(defun elisp-dev-mcp--variable-exists-p (props)
+  "Check if variable exists based on its PROPS.
+A variable exists if it is bound, documented, defined in a file,
+is a custom variable, is obsolete, or is an alias."
+  (or (alist-get 'bound-p props)
+      (alist-get 'doc props)
+      (alist-get 'file props)
+      (alist-get 'custom-p props)
+      (alist-get 'obsolete props)
+      (alist-get 'is-alias props)))
+
 (defun elisp-dev-mcp--describe-function (function)
   "Get full documentation for Emacs Lisp FUNCTION.
 
@@ -258,11 +276,7 @@ VARIABLE is the variable name string, PROPS is an alist of properties."
         (custom-type (alist-get 'custom-type props)))
     (json-encode
      `((name . ,variable)
-       (bound
-        .
-        ,(if bound-p
-             t
-           :json-false))
+       (bound . ,(elisp-dev-mcp--json-bool bound-p))
        ,@
        (when bound-p
          `((value-type
@@ -271,36 +285,20 @@ VARIABLE is the variable name string, PROPS is an alist of properties."
               (type-of (symbol-value (intern variable)))))))
        (documentation . ,doc)
        (source-file . ,(or file "<interactively defined>"))
-       (is-custom
-        .
-        ,(if custom-p
-             t
-           :json-false))
+       (is-custom . ,(elisp-dev-mcp--json-bool custom-p))
        ,@
        (when custom-group
          `((custom-group . ,custom-group)))
        ,@
        (when custom-type
          `((custom-type . ,(format "%S" custom-type))))
-       (is-obsolete
-        .
-        ,(if obsolete
-             t
-           :json-false))
-       (is-alias
-        .
-        ,(if is-alias
-             t
-           :json-false))
+       (is-obsolete . ,(elisp-dev-mcp--json-bool obsolete))
+       (is-alias . ,(elisp-dev-mcp--json-bool is-alias))
        ,@
        (when obsolete
          `((obsolete-since . ,(nth 2 obsolete))
            (obsolete-replacement . ,(nth 0 obsolete))))
-       (is-special
-        .
-        ,(if is-special
-             t
-           :json-false))
+       (is-special . ,(elisp-dev-mcp--json-bool is-special))
        ,@
        (when is-alias
          `((alias-target . ,(symbol-name alias-target))))))))
@@ -313,12 +311,7 @@ MCP Parameters:
   (elisp-dev-mcp--validate-symbol-name variable "variable")
   (let* ((sym (intern variable))
          (props (elisp-dev-mcp--get-variable-properties sym)))
-    (if (or (alist-get 'bound-p props)
-            (alist-get 'doc props)
-            (alist-get 'file props)
-            (alist-get 'custom-p props)
-            (alist-get 'obsolete props)
-            (alist-get 'is-alias props))
+    (if (elisp-dev-mcp--variable-exists-p props)
         (elisp-dev-mcp--build-variable-json-response variable props)
       (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 
