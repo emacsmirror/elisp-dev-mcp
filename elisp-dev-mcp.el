@@ -180,7 +180,10 @@ MCP Parameters:
          (is-special (special-variable-p sym))
          (custom-group
           (when custom-p
-            (elisp-dev-mcp--find-custom-group sym))))
+            (elisp-dev-mcp--find-custom-group sym)))
+         (custom-type
+          (when custom-p
+            (get sym 'custom-type))))
     (if (or bound-p doc file custom-p obsolete is-alias)
         (json-encode
          `((name . ,variable)
@@ -204,6 +207,9 @@ MCP Parameters:
            ,@
            (when custom-group
              `((custom-group . ,custom-group)))
+           ,@
+           (when custom-type
+             `((custom-type . ,(format "%S" custom-type))))
            (is-obsolete
             .
             ,(if obsolete

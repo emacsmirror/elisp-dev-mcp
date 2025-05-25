@@ -74,6 +74,15 @@ X is the input value that will be doubled."
   :type 'string
   :group 'elisp-dev-mcp)
 
+(defcustom elisp-dev-mcp-test--custom-choice-var 'option1
+  "A custom variable with choice type for testing."
+  :type
+  '(choice
+    (const :tag "Option 1" option1)
+    (const :tag "Option 2" option2)
+    (string :tag "Custom string"))
+  :group 'elisp-dev-mcp)
+
 (defvaralias 'elisp-dev-mcp-test--a 'elisp-dev-mcp-test--b "x")
 
 (defvar elisp-dev-mcp-test--b "test-value"
@@ -1093,6 +1102,40 @@ X and Y are dynamically scoped arguments."
       (should
        (string=
         (assoc-default 'custom-group parsed) "elisp-dev-mcp")))))
+
+(ert-deftest elisp-dev-mcp-test-describe-custom-variable-type ()
+  "Test `describe-variable' returns custom type for defcustom variables."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--custom-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'is-custom parsed) t))
+      (should
+       (string= (assoc-default 'custom-type parsed) "string")))))
+
+(ert-deftest elisp-dev-mcp-test-describe-custom-variable-complex-type
+    ()
+  "Test `describe-variable' returns complex custom type for defcustom vars."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--custom-choice-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'is-custom parsed) t))
+      (let ((custom-type (assoc-default 'custom-type parsed)))
+        (should (stringp custom-type))
+        (should (string-match-p "choice" custom-type))
+        (should (string-match-p "option1" custom-type))
+        (should (string-match-p "option2" custom-type))))))
 
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
