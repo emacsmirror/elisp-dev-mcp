@@ -23,6 +23,17 @@
   "Return t if DOC is a non-empty documentation string, nil otherwise."
   (and doc (not (string-empty-p doc))))
 
+;;; Core Utilities
+
+(defmacro elisp-dev-mcp--with-error-handling (&rest body)
+  "Execute BODY with consistent error handling for MCP tools."
+  `(condition-case err
+       (progn
+         ,@body)
+     (error (mcp-tool-throw (format "Error: %S" err)))))
+
+;;; JSON Response Helpers
+
 (defun elisp-dev-mcp--json-encode-source-location
     (source file-path start-line end-line)
   "Encode a source location response as JSON.
@@ -53,6 +64,8 @@ Throws an error if validation fails."
     (mcp-tool-throw (format "Empty %s name" type)))
   (when intern-p
     (intern name)))
+
+;;; Property Collection
 
 (defun elisp-dev-mcp--get-function-properties (sym)
   "Collect all properties for function symbol SYM.
@@ -91,21 +104,23 @@ is a custom variable, is obsolete, or is an alias."
       (alist-get 'obsolete props)
       (alist-get 'is-alias props)))
 
+;;; Tool Implementations
+
 (defun elisp-dev-mcp--describe-function (function)
   "Get full documentation for Emacs Lisp FUNCTION.
 
 MCP Parameters:
   function - The name of the function to describe"
-  (condition-case err
-      (let ((sym
-             (elisp-dev-mcp--validate-symbol function "function" t)))
-        (if (fboundp sym)
-            (with-temp-buffer
-              (let ((standard-output (current-buffer)))
-                (describe-function-1 sym)
-                (buffer-string)))
-          (mcp-tool-throw (format "Function %s is void" function))))
-    (error (mcp-tool-throw (format "Error: %S" err)))))
+  (elisp-dev-mcp--with-error-handling
+   (let ((sym (elisp-dev-mcp--validate-symbol function "function" t)))
+     (if (fboundp sym)
+         (with-temp-buffer
+           (let ((standard-output (current-buffer)))
+             (describe-function-1 sym)
+             (buffer-string)))
+       (mcp-tool-throw (format "Function %s is void" function))))))
+
+;;; Function Definition Helpers
 
 (defun elisp-dev-mcp--process-alias-source
     (source function aliased-to file-path start-line end-line)
@@ -213,6 +228,8 @@ Returns JSON response for an interactively defined function."
            fn-name args doc body)))
     (elisp-dev-mcp--json-encode-source-location
      func-def "<interactively defined>" 1 1)))
+
+;;; Variable Helpers
 
 (defun elisp-dev-mcp--find-custom-group (sym)
   "Find the custom group that contain variable SYM.
@@ -335,6 +352,8 @@ MCP Parameters:
         (elisp-dev-mcp--build-variable-json-response variable props)
       (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 
+;;; File-based Function Extraction
+
 (defun elisp-dev-mcp--get-function-definition-from-file
     (fn-name sym func-file is-alias aliased-to)
   "Extract function definition for FN-NAME from FUNC-FILE.
@@ -378,38 +397,66 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
            (nth 1 source-info)
            (nth 2 source-info)))))))
 
+(defun elisp-dev-mcp--get-function-info (sym)
+  "Get function information for symbol SYM.
+Returns (fn is-alias aliased-to) or nil if not a function."
+  (when (fboundp sym)
+    (let* ((fn (symbol-function sym))
+           (is-alias (symbolp fn))
+           (aliased-to (and is-alias (symbol-name fn))))
+      (list fn is-alias aliased-to))))
+
+(defun elisp-dev-mcp--get-function-definition-dispatch
+    (function sym fn-info)
+  "Dispatch to appropriate handler based on function type.
+FUNCTION is the function name string.
+SYM is the function symbol.
+FN-INFO is the result from `elisp-dev-mcp--get-function-info`."
+  (let ((fn (nth 0 fn-info))
+        (is-alias (nth 1 fn-info))
+        (aliased-to (nth 2 fn-info)))
+    (cond
+     ;; C-implemented function
+     ((subrp fn)
+      (elisp-dev-mcp--get-function-definition-c-function function))
+
+     ;; Has source file
+     ((find-lisp-object-file-name sym 'defun)
+      (elisp-dev-mcp--get-function-definition-from-file
+       function
+       sym
+       (find-lisp-object-file-name sym 'defun)
+       is-alias
+       aliased-to))
+
+     ;; Interactive alias
+     (is-alias
+      (elisp-dev-mcp--process-alias-source
+       (format "'%s" function)
+       function
+       aliased-to
+       "<interactively defined>"
+       1
+       1))
+
+     ;; Interactive function
+     (t
+      (elisp-dev-mcp--get-function-definition-interactive
+       function sym fn)))))
+
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
 
 MCP Parameters:
   function - The name of the function to retrieve"
   (let* ((sym (elisp-dev-mcp--validate-symbol function "function" t))
-         (fn (and (fboundp sym) (symbol-function sym)))
-         (is-alias (symbolp fn))
-         (aliased-to (and is-alias (symbol-name fn))))
-    (unless (fboundp sym)
+         (fn-info (elisp-dev-mcp--get-function-info sym)))
+    (unless fn-info
       (mcp-tool-throw (format "Function %s is not found" function)))
+    (elisp-dev-mcp--get-function-definition-dispatch
+     function sym fn-info)))
 
-    ;; Special handling for C-implemented functions (subrp)
-    (if (subrp fn)
-        (elisp-dev-mcp--get-function-definition-c-function function)
-
-      ;; Regular Elisp function handling
-      (let ((func-file (find-lisp-object-file-name sym 'defun)))
-        (if (not func-file)
-            ;; Handle interactively defined functions with no source file
-            (if is-alias
-                ;; For aliases, create a synthetic defalias form
-                (elisp-dev-mcp--process-alias-source
-                 (format "'%s" function) ; create minimal source
-                 function aliased-to "<interactively defined>" 1 1)
-              ;; Regular interactively defined functions
-              (elisp-dev-mcp--get-function-definition-interactive
-               function sym fn))
-
-          ;; Functions with source file
-          (elisp-dev-mcp--get-function-definition-from-file
-           function sym func-file is-alias aliased-to))))))
+;;; Info Documentation Helpers
 
 (defun elisp-dev-mcp--extract-info-node-content ()
   "Extract the complete content of the current Info node.
@@ -504,21 +551,17 @@ Returns an alist with lookup results or nil if not found."
 
 MCP Parameters:
   symbol - The symbol to look up (string)"
-  (condition-case err
-      (progn
-        ;; Validate input
-        (elisp-dev-mcp--validate-symbol symbol "symbol")
-
-        ;; Perform lookup
-        (let ((result (elisp-dev-mcp--perform-info-lookup symbol)))
-          (if result
-              (json-encode result)
-            (elisp-dev-mcp--json-encode-not-found
-             symbol
-             (format
-              "Symbol '%s' not found in Elisp Info documentation"
-              symbol)))))
-    (error (mcp-tool-throw (format "Error: %S" err)))))
+  (elisp-dev-mcp--with-error-handling
+   ;; Validate input
+   (elisp-dev-mcp--validate-symbol symbol "symbol")
+   ;; Perform lookup
+   (let ((result (elisp-dev-mcp--perform-info-lookup symbol)))
+     (if result
+         (json-encode result)
+       (elisp-dev-mcp--json-encode-not-found
+        symbol
+        (format "Symbol '%s' not found in Elisp Info documentation"
+                symbol))))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
