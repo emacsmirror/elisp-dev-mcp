@@ -64,6 +64,7 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. St
   - =documentation=: Variable documentation or null if none (string or null)
   - =source-file=: Path to the file where the variable is defined (string)
   - =is-custom=: Whether it's a customizable variable (boolean)
+  - =custom-group=: The custom group this variable belongs to (string, only present for custom variables)
   - =is-obsolete=: Whether the variable is marked obsolete (boolean)
   - =obsolete-since=: Version when the variable became obsolete (string, only present if obsolete)
   - =obsolete-replacement=: Suggested replacement for the obsolete variable (string, only present if obsolete)

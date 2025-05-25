@@ -148,6 +148,20 @@ Returns JSON response for an interactively defined function."
        (start-line . 1)
        (end-line . 1)))))
 
+(defun elisp-dev-mcp--find-custom-group (sym)
+  "Find the custom group that contain variable SYM.
+Returns the group name as a string, or nil if not found."
+  (let (found)
+    (mapatoms
+     (lambda (group-sym)
+       (when (and (not found) (get group-sym 'custom-group))
+         (dolist (member (get group-sym 'custom-group))
+           (when (and (not found)
+                      (eq (car member) sym)
+                      (eq (cadr member) 'custom-variable))
+             (setq found (symbol-name group-sym)))))))
+    found))
+
 (defun elisp-dev-mcp--describe-variable (variable)
   "Get information about Emacs Lisp VARIABLE without exposing its value.
 
@@ -163,7 +177,10 @@ MCP Parameters:
          (bound-p (boundp sym))
          (alias-target (indirect-variable sym))
          (is-alias (not (eq sym alias-target)))
-         (is-special (special-variable-p sym)))
+         (is-special (special-variable-p sym))
+         (custom-group
+          (when custom-p
+            (elisp-dev-mcp--find-custom-group sym))))
     (if (or bound-p doc file custom-p obsolete is-alias)
         (json-encode
          `((name . ,variable)
@@ -184,6 +201,9 @@ MCP Parameters:
             ,(if custom-p
                  t
                :json-false))
+           ,@
+           (when custom-group
+             `((custom-group . ,custom-group)))
            (is-obsolete
             .
             ,(if obsolete

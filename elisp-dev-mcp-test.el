@@ -1078,6 +1078,22 @@ X and Y are dynamically scoped arguments."
       (should (string= (assoc-default 'value-type parsed) "cons"))
       (should (eq (assoc-default 'is-special parsed) t)))))
 
+(ert-deftest elisp-dev-mcp-test-describe-custom-variable-group ()
+  "Test `describe-variable' returns custom group for defcustom variables."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-create-tools-call-request
+             "elisp-describe-variable"
+             1
+             `((variable . "elisp-dev-mcp-test--custom-var"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (parsed (json-read-from-string text)))
+      (should (eq (assoc-default 'is-custom parsed) t))
+      (should
+       (string=
+        (assoc-default 'custom-group parsed) "elisp-dev-mcp")))))
+
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
