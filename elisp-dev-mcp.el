@@ -42,20 +42,17 @@ MESSAGE is the error or not-found message."
   (json-encode
    `((found . :json-false) (symbol . ,symbol) (message . ,message))))
 
-(defun elisp-dev-mcp--validate-symbol-name (name type)
+(defun elisp-dev-mcp--validate-symbol (name type &optional intern-p)
   "Validate that NAME is a non-empty string suitable for a symbol.
 TYPE is a string describing the symbol type for error messages.
+If INTERN-P is non-nil, return the interned symbol, otherwise just validate.
 Throws an error if validation fails."
   (unless (stringp name)
     (mcp-tool-throw (format "Invalid %s name" type)))
   (when (string-empty-p name)
-    (mcp-tool-throw (format "Empty %s name" type))))
-
-(defun elisp-dev-mcp--get-validated-symbol (name type)
-  "Validate NAME and return interned symbol.
-TYPE is used in error messages."
-  (elisp-dev-mcp--validate-symbol-name name type)
-  (intern name))
+    (mcp-tool-throw (format "Empty %s name" type)))
+  (when intern-p
+    (intern name)))
 
 (defun elisp-dev-mcp--get-function-properties (sym)
   "Collect all properties for function symbol SYM.
@@ -101,8 +98,7 @@ MCP Parameters:
   function - The name of the function to describe"
   (condition-case err
       (let ((sym
-             (elisp-dev-mcp--get-validated-symbol
-              function "function")))
+             (elisp-dev-mcp--validate-symbol function "function" t)))
         (if (fboundp sym)
             (with-temp-buffer
               (let ((standard-output (current-buffer)))
@@ -333,8 +329,7 @@ VARIABLE is the variable name string, PROPS is an alist of properties."
 
 MCP Parameters:
   variable - The name of the variable to describe"
-  (let* ((sym
-          (elisp-dev-mcp--get-validated-symbol variable "variable"))
+  (let* ((sym (elisp-dev-mcp--validate-symbol variable "variable" t))
          (props (elisp-dev-mcp--get-variable-properties sym)))
     (if (elisp-dev-mcp--variable-exists-p props)
         (elisp-dev-mcp--build-variable-json-response variable props)
@@ -388,8 +383,7 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
 
 MCP Parameters:
   function - The name of the function to retrieve"
-  (let* ((sym
-          (elisp-dev-mcp--get-validated-symbol function "function"))
+  (let* ((sym (elisp-dev-mcp--validate-symbol function "function" t))
          (fn (and (fboundp sym) (symbol-function sym)))
          (is-alias (symbolp fn))
          (aliased-to (and is-alias (symbol-name fn))))
@@ -513,7 +507,7 @@ MCP Parameters:
   (condition-case err
       (progn
         ;; Validate input
-        (elisp-dev-mcp--validate-symbol-name symbol "symbol")
+        (elisp-dev-mcp--validate-symbol symbol "symbol")
 
         ;; Perform lookup
         (let ((result (elisp-dev-mcp--perform-info-lookup symbol)))
