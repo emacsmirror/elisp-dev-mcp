@@ -390,8 +390,52 @@ Use this tool when you need to:
    #'elisp-dev-mcp--describe-variable
    :id "elisp-describe-variable"
    :description
-   "Get information about an Emacs Lisp variable without exposing its value.
-Returns variable documentation and metadata from the current Emacs environment."
+   "Get comprehensive information about an Emacs Lisp variable without
+exposing its value. Essential for understanding variable definitions,
+types, and relationships in Elisp code.
+
+Parameters:
+  variable - Variable name as a string (e.g., \"load-path\", \"custom-file\")
+
+Returns JSON object with these fields:
+  name - Variable name (string, always present)
+  bound - Whether variable has a value (boolean, always present)
+  value-type - Type of the current value like \"string\", \"cons\", \"integer\",
+               \"symbol\" (string, only when bound is true)
+  documentation - Variable's docstring (string or null, always present)
+  source-file - File where defined, or \"<interactively defined>\"
+                (string, always present)
+  is-custom - Whether it's a defcustom variable (boolean, always present)
+  custom-group - Which customization group it belongs to
+                 (string, only when is-custom is true)
+  custom-type - Type specification for customization like \"string\" or
+                complex types (string, only when is-custom is true)
+  is-obsolete - Whether marked as obsolete (boolean, always present)
+  obsolete-since - Version when obsoleted
+                   (string, only when is-obsolete is true)
+  obsolete-replacement - Suggested replacement
+                         (string, only when is-obsolete is true)
+  is-alias - Whether this is an alias to another variable
+             (boolean, always present)
+  alias-target - The actual variable this aliases to
+                 (string, only when is-alias is true)
+  is-special - Whether it's a special/dynamic variable in lexical-binding
+               context (boolean, always present)
+
+Common use cases:
+- Check if a configuration variable exists before using it
+- Understand variable relationships (aliases, obsolescence)
+- Verify variable types before setting values
+- Find documentation for Emacs configuration options
+- Discover which customization group a setting belongs to
+
+Security: Never exposes actual values to prevent leaking sensitive data
+like API keys, passwords, or personal information. Use this instead of
+eval when exploring variables.
+
+Error cases return error messages for:
+- Non-string input
+- Completely undefined variables (no binding, no documentation, no properties)"
    :read-only t))
 
 ;;;###autoload
