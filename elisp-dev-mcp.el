@@ -51,6 +51,31 @@ Throws an error if validation fails."
   (when (string-empty-p name)
     (mcp-tool-throw (format "Empty %s name" type))))
 
+(defun elisp-dev-mcp--get-validated-symbol (name type)
+  "Validate NAME and return interned symbol.
+TYPE is used in error messages."
+  (elisp-dev-mcp--validate-symbol-name name type)
+  (intern name))
+
+(defun elisp-dev-mcp--get-function-properties (sym)
+  "Collect all properties for function symbol SYM.
+Returns an alist of properties or nil if not a function."
+  (when (fboundp sym)
+    (let* ((fn (symbol-function sym))
+           (is-alias (symbolp fn))
+           (aliased-to (and is-alias fn)))
+      `((function . ,fn)
+        (is-alias . ,is-alias)
+        (aliased-to . ,aliased-to)
+        (is-subr
+         .
+         ,(subrp
+           (if is-alias
+               aliased-to
+             fn)))
+        (doc . ,(documentation sym))
+        (file . ,(find-lisp-object-file-name sym 'defun))))))
+
 (defun elisp-dev-mcp--json-bool (value)
   "Convert elisp boolean VALUE to JSON boolean representation.
 Returns t for truthy values, :json-false for falsy values."
@@ -74,9 +99,10 @@ is a custom variable, is obsolete, or is an alias."
 
 MCP Parameters:
   function - The name of the function to describe"
-  (elisp-dev-mcp--validate-symbol-name function "function")
   (condition-case err
-      (let ((sym (intern function)))
+      (let ((sym
+             (elisp-dev-mcp--get-validated-symbol
+              function "function")))
         (if (fboundp sym)
             (with-temp-buffer
               (let ((standard-output (current-buffer)))
@@ -195,16 +221,15 @@ Returns JSON response for an interactively defined function."
 (defun elisp-dev-mcp--find-custom-group (sym)
   "Find the custom group that contain variable SYM.
 Returns the group name as a string, or nil if not found."
-  (let (found)
+  (catch 'found
     (mapatoms
      (lambda (group-sym)
-       (when (and (not found) (get group-sym 'custom-group))
+       (when (get group-sym 'custom-group)
          (dolist (member (get group-sym 'custom-group))
-           (when (and (not found)
-                      (eq (car member) sym)
+           (when (and (eq (car member) sym)
                       (eq (cadr member) 'custom-variable))
-             (setq found (symbol-name group-sym)))))))
-    found))
+             (throw 'found (symbol-name group-sym)))))))
+    nil))
 
 (defun elisp-dev-mcp--find-header-comment-start (point)
   "Find the start of header comments preceding POINT.
@@ -308,8 +333,8 @@ VARIABLE is the variable name string, PROPS is an alist of properties."
 
 MCP Parameters:
   variable - The name of the variable to describe"
-  (elisp-dev-mcp--validate-symbol-name variable "variable")
-  (let* ((sym (intern variable))
+  (let* ((sym
+          (elisp-dev-mcp--get-validated-symbol variable "variable"))
          (props (elisp-dev-mcp--get-variable-properties sym)))
     (if (elisp-dev-mcp--variable-exists-p props)
         (elisp-dev-mcp--build-variable-json-response variable props)
@@ -363,12 +388,12 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
 
 MCP Parameters:
   function - The name of the function to retrieve"
-  (elisp-dev-mcp--validate-symbol-name function "function")
-  (let* ((sym (intern-soft function))
-         (fn (and sym (fboundp sym) (symbol-function sym)))
+  (let* ((sym
+          (elisp-dev-mcp--get-validated-symbol function "function"))
+         (fn (and (fboundp sym) (symbol-function sym)))
          (is-alias (symbolp fn))
          (aliased-to (and is-alias (symbol-name fn))))
-    (unless (and sym (fboundp sym))
+    (unless (fboundp sym)
       (mcp-tool-throw (format "Function %s is not found" function)))
 
     ;; Special handling for C-implemented functions (subrp)
