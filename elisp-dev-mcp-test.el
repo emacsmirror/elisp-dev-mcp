@@ -238,7 +238,8 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
   (elisp-dev-mcp-test-with-server
     (let* ((req (elisp-dev-mcp-test--describe-req 123))
            (resp (elisp-dev-mcp-test--send-req req)))
-      (elisp-dev-mcp-test--verify-error-resp resp "Error:"))))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid function name"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-empty-string-function ()
   "Test that `describe-function' MCP handler handles empty string properly."
@@ -246,7 +247,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
     (let* ((req (elisp-dev-mcp-test--describe-req ""))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Function  is void"))))
+       resp "Empty function name"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-as-function ()
   "Test that `describe-function' MCP handler handles variable names properly."
@@ -630,7 +631,7 @@ D captures remaining arguments."
     (let* ((req (elisp-dev-mcp-test--definition-req ""))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Function  is not found"))))
+       resp "Empty function name"))))
 
 (ert-deftest elisp-dev-mcp-test-get-variable-as-function-definition ()
   "Test that `elisp-get-function-definition' handles variable names properly."
@@ -889,7 +890,7 @@ X and Y are dynamically scoped arguments."
              "elisp-describe-variable" 1 `((variable . ""))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Variable  is not bound"))))
+       resp "Empty variable name"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-no-docstring ()
   "Test `describe-variable' MCP handler with undocumented variables."
@@ -1194,7 +1195,7 @@ X and Y are dynamically scoped arguments."
              "elisp-info-lookup-symbol" 1 `((symbol . ""))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Invalid symbol name"))))
+       resp "Empty symbol name"))))
 
 (ert-deftest elisp-dev-mcp-test-info-lookup-invalid-type ()
   "Test that `elisp-info-lookup-symbol' handles non-string symbols."

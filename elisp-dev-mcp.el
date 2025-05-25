@@ -42,11 +42,21 @@ MESSAGE is the error or not-found message."
   (json-encode
    `((found . :json-false) (symbol . ,symbol) (message . ,message))))
 
+(defun elisp-dev-mcp--validate-symbol-name (name type)
+  "Validate that NAME is a non-empty string suitable for a symbol.
+TYPE is a string describing the symbol type for error messages.
+Throws an error if validation fails."
+  (unless (stringp name)
+    (mcp-tool-throw (format "Invalid %s name" type)))
+  (when (string-empty-p name)
+    (mcp-tool-throw (format "Empty %s name" type))))
+
 (defun elisp-dev-mcp--describe-function (function)
   "Get full documentation for Emacs Lisp FUNCTION.
 
 MCP Parameters:
   function - The name of the function to describe"
+  (elisp-dev-mcp--validate-symbol-name function "function")
   (condition-case err
       (let ((sym (intern function)))
         (if (fboundp sym)
@@ -178,8 +188,7 @@ Returns the group name as a string, or nil if not found."
 
 MCP Parameters:
   variable - The name of the variable to describe"
-  (unless (stringp variable)
-    (mcp-tool-throw "Invalid variable name"))
+  (elisp-dev-mcp--validate-symbol-name variable "variable")
   (let* ((sym (intern variable))
          (doc (documentation-property sym 'variable-documentation))
          (file (find-lisp-object-file-name sym 'defvar))
@@ -306,8 +315,7 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
 
 MCP Parameters:
   function - The name of the function to retrieve"
-  (unless (stringp function)
-    (mcp-tool-throw "Invalid function name"))
+  (elisp-dev-mcp--validate-symbol-name function "function")
   (let* ((sym (intern-soft function))
          (fn (and sym (fboundp sym) (symbol-function sym)))
          (is-alias (symbolp fn))
@@ -432,10 +440,7 @@ MCP Parameters:
   (condition-case err
       (progn
         ;; Validate input
-        (unless (stringp symbol)
-          (mcp-tool-throw "Invalid symbol name"))
-        (when (string-empty-p symbol)
-          (mcp-tool-throw "Invalid symbol name"))
+        (elisp-dev-mcp--validate-symbol-name symbol "symbol")
 
         ;; Perform lookup
         (let ((result (elisp-dev-mcp--perform-info-lookup symbol)))
