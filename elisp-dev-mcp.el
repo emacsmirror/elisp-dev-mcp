@@ -117,10 +117,15 @@ Returns nil if FN is not a function."
       (aref fn 1))
      ;; Emacs 29 and earlier cons-based functions
      ((consp fn)
+      ;; Function format: (closure ENV ARGS [DOCSTRING] . BODY)
+      ;; or: (lambda ARGS [DOCSTRING] . BODY)
+      ;; Skip: car (closure/lambda), cadr (env/args), caddr (args/docstring)
+      ;; If has docstring, body starts at position 3 (0-indexed)
+      ;; If no docstring, body starts at position 2 (0-indexed)
       (nthcdr
        (if has-doc
-           3
-         2)
+           3 ; Skip closure/lambda, env/args, and docstring
+         2) ; Skip closure/lambda and args only
        fn))
      ;; Fallback for other types
      (t
@@ -183,14 +188,37 @@ Returns the group name as a string, or nil if not found."
              (setq found (symbol-name group-sym)))))))
     found))
 
-(defun elisp-dev-mcp--describe-variable (variable)
-  "Get information about Emacs Lisp VARIABLE without exposing its value.
+(defun elisp-dev-mcp--find-header-comment-start (point)
+  "Find the start of header comments preceding POINT.
+Returns the position of the first comment line, or POINT if no comments found."
+  (save-excursion
+    (goto-char point)
+    (beginning-of-line)
+    (forward-line -1)
 
-MCP Parameters:
-  variable - The name of the variable to describe"
-  (elisp-dev-mcp--validate-symbol-name variable "variable")
-  (let* ((sym (intern variable))
-         (doc (documentation-property sym 'variable-documentation))
+    ;; Check if there's a header comment
+    (if (looking-at "^[ \t]*;;")
+        (progn
+          ;; Find first line of the consecutive comment block
+          (while (and (looking-at "^[ \t]*;;")
+                      (> (forward-line -1) -1)))
+          ;; We went one line too far back
+          (forward-line 1)
+          (point))
+      point)))
+
+(defun elisp-dev-mcp--extract-source-region (start-point end-point)
+  "Extract source code between START-POINT and END-POINT.
+Returns a list of (source start-line end-line)."
+  (list
+   (buffer-substring-no-properties start-point end-point)
+   (line-number-at-pos start-point)
+   (line-number-at-pos end-point)))
+
+(defun elisp-dev-mcp--get-variable-properties (sym)
+  "Collect all properties for variable symbol SYM.
+Returns an alist of properties."
+  (let* ((doc (documentation-property sym 'variable-documentation))
          (file (find-lisp-object-file-name sym 'defvar))
          (custom-p (custom-variable-p sym))
          (obsolete (get sym 'byte-obsolete-variable))
@@ -204,54 +232,94 @@ MCP Parameters:
          (custom-type
           (when custom-p
             (get sym 'custom-type))))
-    (if (or bound-p doc file custom-p obsolete is-alias)
-        (json-encode
-         `((name . ,variable)
-           (bound
+    `((doc . ,doc)
+      (file . ,file)
+      (custom-p . ,custom-p)
+      (obsolete . ,obsolete)
+      (bound-p . ,bound-p)
+      (alias-target . ,alias-target)
+      (is-alias . ,is-alias)
+      (is-special . ,is-special)
+      (custom-group . ,custom-group)
+      (custom-type . ,custom-type))))
+
+(defun elisp-dev-mcp--build-variable-json-response (variable props)
+  "Build JSON response for VARIABLE using collected PROPS.
+VARIABLE is the variable name string, PROPS is an alist of properties."
+  (let ((bound-p (alist-get 'bound-p props))
+        (doc (alist-get 'doc props))
+        (file (alist-get 'file props))
+        (custom-p (alist-get 'custom-p props))
+        (obsolete (alist-get 'obsolete props))
+        (is-alias (alist-get 'is-alias props))
+        (alias-target (alist-get 'alias-target props))
+        (is-special (alist-get 'is-special props))
+        (custom-group (alist-get 'custom-group props))
+        (custom-type (alist-get 'custom-type props)))
+    (json-encode
+     `((name . ,variable)
+       (bound
+        .
+        ,(if bound-p
+             t
+           :json-false))
+       ,@
+       (when bound-p
+         `((value-type
             .
-            ,(if bound-p
-                 t
-               :json-false))
-           ,@
-           (when bound-p
-             `((value-type
-                .
-                ,(symbol-name (type-of (symbol-value sym))))))
-           (documentation . ,doc)
-           (source-file . ,(or file "<interactively defined>"))
-           (is-custom
-            .
-            ,(if custom-p
-                 t
-               :json-false))
-           ,@
-           (when custom-group
-             `((custom-group . ,custom-group)))
-           ,@
-           (when custom-type
-             `((custom-type . ,(format "%S" custom-type))))
-           (is-obsolete
-            .
-            ,(if obsolete
-                 t
-               :json-false))
-           (is-alias
-            .
-            ,(if is-alias
-                 t
-               :json-false))
-           ,@
-           (when obsolete
-             `((obsolete-since . ,(nth 2 obsolete))
-               (obsolete-replacement . ,(nth 0 obsolete))))
-           (is-special
-            .
-            ,(if is-special
-                 t
-               :json-false))
-           ,@
-           (when is-alias
-             `((alias-target . ,(symbol-name alias-target))))))
+            ,(symbol-name
+              (type-of (symbol-value (intern variable)))))))
+       (documentation . ,doc)
+       (source-file . ,(or file "<interactively defined>"))
+       (is-custom
+        .
+        ,(if custom-p
+             t
+           :json-false))
+       ,@
+       (when custom-group
+         `((custom-group . ,custom-group)))
+       ,@
+       (when custom-type
+         `((custom-type . ,(format "%S" custom-type))))
+       (is-obsolete
+        .
+        ,(if obsolete
+             t
+           :json-false))
+       (is-alias
+        .
+        ,(if is-alias
+             t
+           :json-false))
+       ,@
+       (when obsolete
+         `((obsolete-since . ,(nth 2 obsolete))
+           (obsolete-replacement . ,(nth 0 obsolete))))
+       (is-special
+        .
+        ,(if is-special
+             t
+           :json-false))
+       ,@
+       (when is-alias
+         `((alias-target . ,(symbol-name alias-target))))))))
+
+(defun elisp-dev-mcp--describe-variable (variable)
+  "Get information about Emacs Lisp VARIABLE without exposing its value.
+
+MCP Parameters:
+  variable - The name of the variable to describe"
+  (elisp-dev-mcp--validate-symbol-name variable "variable")
+  (let* ((sym (intern variable))
+         (props (elisp-dev-mcp--get-variable-properties sym)))
+    (if (or (alist-get 'bound-p props)
+            (alist-get 'doc props)
+            (alist-get 'file props)
+            (alist-get 'custom-p props)
+            (alist-get 'obsolete props)
+            (alist-get 'is-alias props))
+        (elisp-dev-mcp--build-variable-json-response variable props)
       (mcp-tool-throw (format "Variable %s is not bound" variable)))))
 
 (defun elisp-dev-mcp--get-function-definition-from-file
@@ -268,47 +336,34 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
         (mcp-tool-throw
          (format "Could not locate definition for %s" fn-name)))
       (goto-char (cdr def-pos))
-      ;; Get function definition with any header comments
+
+      ;; Find the start point including any header comments
       (let* ((func-point (point))
-             (func-line (line-number-at-pos))
-             (start-point func-point)
-             (start-line func-line)
-             (end-line nil)
-             (source nil))
-
-        ;; Go back to search for comments
-        (beginning-of-line)
-        (forward-line -1) ;; Check line above function
-
-        ;; If this is a comment line, it's part of the header comment
-        (when (looking-at "^[ \t]*;;")
-
-          ;; Find first line of the consecutive comment block
-          (while (and (looking-at "^[ \t]*;;")
-                      (> (forward-line -1) -1)))
-
-          ;; We went one line too far back
-          (forward-line 1)
-
-          ;; Update start point to include header comments
-          (setq start-point (point))
-          (setq start-line (line-number-at-pos)))
-
-        ;; Return to function start point to process the definition
-        (goto-char func-point)
-        (forward-sexp)
-        (setq end-line (line-number-at-pos))
-
-        ;; Extract the source code including any header comments
-        (setq source
-              (buffer-substring-no-properties start-point (point)))
+             (start-point
+              (elisp-dev-mcp--find-header-comment-start func-point))
+             (end-point
+              (progn
+                (goto-char func-point)
+                (forward-sexp)
+                (point)))
+             (source-info
+              (elisp-dev-mcp--extract-source-region
+               start-point end-point)))
 
         ;; Return the result, with special handling for aliases
         (if is-alias
             (elisp-dev-mcp--process-alias-source
-             source fn-name aliased-to func-file start-line end-line)
+             (nth 0 source-info)
+             fn-name
+             aliased-to
+             func-file
+             (nth 1 source-info)
+             (nth 2 source-info))
           (elisp-dev-mcp--json-encode-source-location
-           source func-file start-line end-line))))))
+           (nth 0 source-info)
+           func-file
+           (nth 1 source-info)
+           (nth 2 source-info)))))))
 
 (defun elisp-dev-mcp--get-function-definition (function)
   "Get the source code definition for Emacs Lisp FUNCTION.
