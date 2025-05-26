@@ -26,15 +26,6 @@
   "Return t if DOC is a non-empty documentation string, nil otherwise."
   (and doc (not (string-empty-p doc))))
 
-;;; Core Utilities
-
-(defmacro elisp-dev-mcp--with-error-handling (&rest body)
-  "Execute BODY with consistent error handling for MCP tools."
-  `(condition-case err
-       (progn
-         ,@body)
-     (error (mcp-server-lib-tool-throw (format "Error: %S" err)))))
-
 ;;; JSON Response Helpers
 
 (defun elisp-dev-mcp--json-encode-source-location
@@ -116,7 +107,7 @@ is a custom variable, is obsolete, or is an alias."
 
 MCP Parameters:
   function - The name of the function to describe"
-  (elisp-dev-mcp--with-error-handling
+  (mcp-server-lib-with-error-handling
    (let ((sym (elisp-dev-mcp--validate-symbol function "function" t)))
      (if (fboundp sym)
          (with-temp-buffer
@@ -555,7 +546,7 @@ Returns an alist with lookup results or nil if not found."
 
 MCP Parameters:
   symbol - The symbol to look up (string)"
-  (elisp-dev-mcp--with-error-handling
+  (mcp-server-lib-with-error-handling
    ;; Validate input
    (elisp-dev-mcp--validate-symbol symbol "symbol")
    ;; Perform lookup
