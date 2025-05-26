@@ -16,7 +16,8 @@
 
 (require 'ert)
 (require 'json)
-(require 'mcp)
+(require 'mcp-server-lib)
+(require 'mcp-server-lib-commands)
 (require 'elisp-dev-mcp)
 (require 'elisp-dev-mcp-test-no-checkdoc)
 
@@ -123,17 +124,17 @@ X is the input value that will be doubled."
 
 (defun elisp-dev-mcp-test--describe-req (function-name)
   "Create a request to call `elisp-describe-function` with FUNCTION-NAME."
-  (mcp-create-tools-call-request
+  (mcp-server-lib-create-tools-call-request
    "elisp-describe-function" 1 `((function . ,function-name))))
 
 (defun elisp-dev-mcp-test--definition-req (function-name)
   "Create a request to call `elisp-get-function-definition` with FUNCTION-NAME."
-  (mcp-create-tools-call-request
+  (mcp-server-lib-create-tools-call-request
    "elisp-get-function-definition" 1 `((function . ,function-name))))
 
 (defun elisp-dev-mcp-test--send-req (request)
   "Send REQUEST to the MCP server and return parsed response data."
-  (json-read-from-string (mcp-process-jsonrpc request)))
+  (json-read-from-string (mcp-server-lib-process-jsonrpc request)))
 
 ;;; Helpers to analyze response JSON
 
@@ -355,7 +356,7 @@ Returns a list of our registered tools in the order:
 \(describe-function-tool get-definition-tool describe-variable-tool
 info-lookup-tool).
 Any tool not found will be nil in the list."
-  (let* ((req (mcp-create-tools-list-request))
+  (let* ((req (mcp-server-lib-create-tools-list-request))
          (resp (elisp-dev-mcp-test--send-req req))
          (result (assoc-default 'result resp))
          (tools (assoc-default 'tools result))
@@ -438,7 +439,7 @@ Any tool not found will be nil in the list."
   "Test that `elisp-get-function-definition' MCP handler works correctly."
   (elisp-dev-mcp-test-with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--without-header-comment" 41 44
+     "elisp-dev-mcp-test--without-header-comment" 42 45
      "(defun elisp-dev-mcp-test--without-header-comment (value)
   \"Simple function without a header comment.
 VALUE is multiplied by 2.\"
@@ -484,7 +485,7 @@ VALUE is multiplied by 2.\"
   "Test that `elisp-get-function-definition' includes header comments."
   (elisp-dev-mcp-test-with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--with-header-comment" 26 36
+     "elisp-dev-mcp-test--with-header-comment" 27 37
      ";; This is a header comment that should be included
 ;; when extracting the function definition
 (defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
@@ -849,7 +850,7 @@ X and Y are dynamically scoped arguments."
   "Test that `describe-variable' MCP handler works correctly."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable" 1 `((variable . "load-path"))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
@@ -864,7 +865,7 @@ X and Y are dynamically scoped arguments."
   "Test that `describe-variable' MCP handler handles non-existent variables."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "non-existent-variable-xyz"))))
@@ -876,7 +877,7 @@ X and Y are dynamically scoped arguments."
   "Test that `describe-variable' handles non-string variable names properly."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable" 1 `((variable . 123))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
@@ -886,7 +887,7 @@ X and Y are dynamically scoped arguments."
   "Test that `describe-variable' MCP handler handles empty string properly."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable" 1 `((variable . ""))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
@@ -898,7 +899,7 @@ X and Y are dynamically scoped arguments."
     ;; Create a variable without documentation
     (setq elisp-dev-mcp-test--undocumented-var 42)
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--undocumented-var"))))
@@ -922,7 +923,7 @@ X and Y are dynamically scoped arguments."
   (elisp-dev-mcp-test-with-server
     (let*
         ((req
-          (mcp-create-tools-call-request
+          (mcp-server-lib-create-tools-call-request
            "elisp-describe-variable" 1
            `((variable
               .
@@ -944,7 +945,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' MCP handler with custom variables."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--custom-var"))))
@@ -978,7 +979,7 @@ X and Y are dynamically scoped arguments."
      '(defvar elisp-dev-mcp-test--interactive-var 123
         "An interactively defined variable."))
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--interactive-var"))))
@@ -1005,7 +1006,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' MCP handler with obsolete variables."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--obsolete-var"))))
@@ -1037,7 +1038,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' MCP handler with unbound but documented variables."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable" 1
              `((variable
                 . "elisp-dev-mcp-test--unbound-documented-var"))))
@@ -1065,7 +1066,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' MCP handler with variable aliases."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--a"))))
@@ -1087,7 +1088,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' MCP handler with special variables."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable" 1 `((variable . "load-path"))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
@@ -1101,7 +1102,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' returns custom group for defcustom variables."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--custom-var"))))
@@ -1117,7 +1118,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' returns custom type for defcustom variables."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--custom-var"))))
@@ -1133,7 +1134,7 @@ X and Y are dynamically scoped arguments."
   "Test `describe-variable' returns complex custom type for defcustom vars."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
              1
              `((variable . "elisp-dev-mcp-test--custom-choice-var"))))
@@ -1151,7 +1152,7 @@ X and Y are dynamically scoped arguments."
   "Test that `elisp-info-lookup-symbol' MCP handler works correctly."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "defun"))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
@@ -1171,7 +1172,7 @@ X and Y are dynamically scoped arguments."
   "Test that `elisp-info-lookup-symbol' handles non-existent symbols."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol"
              1
              `((symbol . "non-existent-symbol-xyz"))))
@@ -1191,7 +1192,7 @@ X and Y are dynamically scoped arguments."
   "Test that `elisp-info-lookup-symbol' handles empty string properly."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . ""))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
@@ -1201,7 +1202,7 @@ X and Y are dynamically scoped arguments."
   "Test that `elisp-info-lookup-symbol' handles non-string symbols."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . 123))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
@@ -1211,7 +1212,7 @@ X and Y are dynamically scoped arguments."
   "Test `elisp-info-lookup-symbol' with a well-known function."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "mapcar"))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
@@ -1229,7 +1230,7 @@ X and Y are dynamically scoped arguments."
   "Test `elisp-info-lookup-symbol' with a special form."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "let"))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
@@ -1245,7 +1246,7 @@ X and Y are dynamically scoped arguments."
   "Test `elisp-info-lookup-symbol' with a variable."
   (elisp-dev-mcp-test-with-server
     (let* ((req
-            (mcp-create-tools-call-request
+            (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "load-path"))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil))

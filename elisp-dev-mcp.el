@@ -14,7 +14,7 @@
 
 ;;; Code:
 
-(require 'mcp)
+(require 'mcp-server-lib)
 (require 'help-fns)
 (require 'pp)
 (require 'info-look)
@@ -33,7 +33,7 @@
   `(condition-case err
        (progn
          ,@body)
-     (error (mcp-tool-throw (format "Error: %S" err)))))
+     (error (mcp-server-lib-tool-throw (format "Error: %S" err)))))
 
 ;;; JSON Response Helpers
 
@@ -62,9 +62,9 @@ TYPE is a string describing the symbol type for error messages.
 If INTERN-P is non-nil, return the interned symbol, otherwise just validate.
 Throws an error if validation fails."
   (unless (stringp name)
-    (mcp-tool-throw (format "Invalid %s name" type)))
+    (mcp-server-lib-tool-throw (format "Invalid %s name" type)))
   (when (string-empty-p name)
-    (mcp-tool-throw (format "Empty %s name" type)))
+    (mcp-server-lib-tool-throw (format "Empty %s name" type)))
   (when intern-p
     (intern name)))
 
@@ -123,7 +123,8 @@ MCP Parameters:
            (let ((standard-output (current-buffer)))
              (describe-function-1 sym)
              (buffer-string)))
-       (mcp-tool-throw (format "Function %s is void" function))))))
+       (mcp-server-lib-tool-throw
+        (format "Function %s is void" function))))))
 
 ;;; Function Definition Helpers
 
@@ -189,7 +190,7 @@ Returns nil if FN is not a function."
        fn))
      ;; Fallback for other types
      (t
-      (mcp-tool-throw
+      (mcp-server-lib-tool-throw
        (format "Don't know how to extract body from function type: %s"
                (type-of fn)))))))
 
@@ -204,7 +205,7 @@ ARGS is the argument list.
 DOC is the documentation string (can be empty).
 BODY is the list of body expressions."
   (unless body
-    (mcp-tool-throw
+    (mcp-server-lib-tool-throw
      (format "Failed to extract body for function %s" fn-name)))
   (let ((defun-form
          `(defun ,(intern fn-name) ,(or args '())
@@ -351,7 +352,8 @@ MCP Parameters:
          (props (elisp-dev-mcp--extract-variable-properties sym)))
     (if (elisp-dev-mcp--variable-exists-p props)
         (elisp-dev-mcp--build-variable-json-response variable props)
-      (mcp-tool-throw (format "Variable %s is not bound" variable)))))
+      (mcp-server-lib-tool-throw
+       (format "Variable %s is not bound" variable)))))
 
 ;;; File-based Function Extraction
 
@@ -366,7 +368,7 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
     (let ((def-pos
            (find-function-search-for-symbol sym nil func-file)))
       (unless def-pos
-        (mcp-tool-throw
+        (mcp-server-lib-tool-throw
          (format "Could not locate definition for %s" fn-name)))
       (goto-char (cdr def-pos))
 
@@ -453,7 +455,8 @@ MCP Parameters:
   (let* ((sym (elisp-dev-mcp--validate-symbol function "function" t))
          (fn-info (elisp-dev-mcp--extract-function-info sym)))
     (unless fn-info
-      (mcp-tool-throw (format "Function %s is not found" function)))
+      (mcp-server-lib-tool-throw
+       (format "Function %s is not found" function)))
     (elisp-dev-mcp--get-function-definition-dispatch
      function sym fn-info)))
 
@@ -567,7 +570,7 @@ MCP Parameters:
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
   "Enable the Elisp development MCP tools."
-  (mcp-register-tool
+  (mcp-server-lib-register-tool
    #'elisp-dev-mcp--describe-function
    :id "elisp-describe-function"
    :description
@@ -592,7 +595,7 @@ Error cases:
 - Non-existent functions return 'Function X is void'
 - Invalid input types return 'Error: ...'"
    :read-only t)
-  (mcp-register-tool
+  (mcp-server-lib-register-tool
    #'elisp-dev-mcp--get-function-definition
    :id "elisp-get-function-definition"
    :description
@@ -622,7 +625,7 @@ Use this tool when you need to:
 - Extract function source for modification
 - Understand function structure with comments"
    :read-only t)
-  (mcp-register-tool
+  (mcp-server-lib-register-tool
    #'elisp-dev-mcp--describe-variable
    :id "elisp-describe-variable"
    :description
@@ -673,7 +676,7 @@ Error cases return error messages for:
 - Non-string input
 - Completely undefined variables (no binding, no documentation, no properties)"
    :read-only t)
-  (mcp-register-tool
+  (mcp-server-lib-register-tool
    #'elisp-dev-mcp--info-lookup-symbol
    :id "elisp-info-lookup-symbol"
    :description
@@ -718,10 +721,10 @@ Error cases:
 ;;;###autoload
 (defun elisp-dev-mcp-disable ()
   "Disable the Elisp development MCP tools."
-  (mcp-unregister-tool "elisp-describe-function")
-  (mcp-unregister-tool "elisp-get-function-definition")
-  (mcp-unregister-tool "elisp-describe-variable")
-  (mcp-unregister-tool "elisp-info-lookup-symbol"))
+  (mcp-server-lib-unregister-tool "elisp-describe-function")
+  (mcp-server-lib-unregister-tool "elisp-get-function-definition")
+  (mcp-server-lib-unregister-tool "elisp-describe-variable")
+  (mcp-server-lib-unregister-tool "elisp-info-lookup-symbol"))
 
 (provide 'elisp-dev-mcp)
 ;;; elisp-dev-mcp.el ends here

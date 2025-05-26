@@ -9,7 +9,7 @@
 for agentic Elisp development. It enables AI agents to assist with Elisp coding tasks
 by providing a structured API to interact with Emacs and manipulate Elisp code.
 
-This package leverages [[https://github.com/laurynas-biveinis/mcp.el][mcp.el]] for the underlying MCP infrastructure.
+This package leverages [[https://github.com/laurynas-biveinis/mcp-server-lib.el][mcp-server-lib.el]] for the underlying MCP infrastructure.
 
 * Installation
 
@@ -17,10 +17,10 @@ This package leverages [[https://github.com/laurynas-biveinis/mcp.el][mcp.el]] f
 
 ** Registering with an MCP Client
 
-To use =elisp-dev-mcp= with an MCP client like Claude Code, you need to register it using the =emacs-mcp-stdio.sh= script provided by [[https://github.com/laurynas-biveinis/mcp.el][mcp.el]], using =elisp-dev-mcp-enable= and =elisp-dev-mcp-disable= as MCP init and stop functions:
+To use =elisp-dev-mcp= with an MCP client like Claude Code, you need to register it using the =emacs-mcp-stdio.sh= script provided by [[https://github.com/laurynas-biveinis/mcp-server-lib.el][mcp-server-lib.el]], using =elisp-dev-mcp-enable= and =elisp-dev-mcp-disable= as MCP init and stop functions:
 
 #+begin_example
-claude mcp add -s user -t stdio elisp-dev -- $HOME/.emacs.d/elpa/mcp.el/emacs-mcp-stdio.sh --init-function=elisp-dev-mcp-enable --stop-function=elisp-dev-mcp-disable
+claude mcp add -s user -t stdio elisp-dev -- $HOME/.emacs.d/elpa/mcp-server-lib/emacs-mcp-stdio.sh --init-function=elisp-dev-mcp-enable --stop-function=elisp-dev-mcp-disable
 #+end_example
 
 Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. Stop it with =M-x mcp-stop= when done.

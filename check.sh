@@ -47,7 +47,7 @@ readonly SHELL_FILES=(check.sh)
 readonly EMACS="emacs -Q --batch"
 
 # Elisp packages in ELPA
-readonly MCP="mcp"
+readonly MCP_SERVER_LIB="mcp-server-lib"
 readonly ELISP_AUTOFMT="elisp-autofmt-20250421.1112"
 readonly ELISP_LINT="elisp-lint-20220419.252"
 readonly PACKAGE_LINT="package-lint-0.26"
@@ -62,7 +62,7 @@ SHELL_SYNTAX_FAILED=0
 echo -n "Checking Elisp syntax... "
 if $EMACS --eval "(setq byte-compile-warnings nil)" \
 	--eval "(add-to-list 'load-path \".\")" \
-	--eval "(add-to-list 'load-path (locate-user-emacs-file \"elpa/$MCP\"))" \
+	--eval "(add-to-list 'load-path (locate-user-emacs-file \"elpa/$MCP_SERVER_LIB\"))" \
 	--eval "(dolist (file '($ELISP_FILES))
         (princ (format \"%s \" file))
         (unless (byte-compile-file file)
@@ -99,7 +99,7 @@ rm -f ./*.elc
 # Only run elisp-lint if there are no errors so far
 if [ $ERRORS -eq 0 ]; then
 	echo -n "Running elisp-lint... "
-	if $EMACS --eval "(let ((pkg-dirs (list (locate-user-emacs-file \"elpa/$MCP\")
+	if $EMACS --eval "(let ((pkg-dirs (list (locate-user-emacs-file \"elpa/$MCP_SERVER_LIB\")
                                               (locate-user-emacs-file \"elpa/$ELISP_LINT\")
 	                                      (locate-user-emacs-file \"elpa/$PACKAGE_LINT\")
 	                                      (locate-user-emacs-file \"elpa/$DASH\")
@@ -130,7 +130,7 @@ rm -f ./*.elc
 if [ $ELISP_SYNTAX_FAILED -eq 0 ]; then
 	echo -n "Running all tests... "
 	if $EMACS --eval \
-		"(add-to-list 'load-path (locate-user-emacs-file \"elpa/$MCP\"))" \
+		"(add-to-list 'load-path (locate-user-emacs-file \"elpa/$MCP_SERVER_LIB\"))" \
 		--eval "(add-to-list 'load-path (expand-file-name \".\"))" \
 		-l elisp-dev-mcp-test.el --eval '(let ((ert-quiet t))
           (ert-run-tests-batch-and-exit))'; then
