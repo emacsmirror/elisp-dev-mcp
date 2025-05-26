@@ -354,7 +354,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
 \(describe-function-tool get-definition-tool describe-variable-tool
-info-lookup-tool).
+info-lookup-tool read-package-file-tool).
 Any tool not found will be nil in the list."
   (let* ((req (mcp-server-lib-create-tools-list-request))
          (resp (elisp-dev-mcp-test--send-req req))
@@ -363,7 +363,8 @@ Any tool not found will be nil in the list."
          (describe-function-tool nil)
          (get-definition-tool nil)
          (describe-variable-tool nil)
-         (info-lookup-tool nil))
+         (info-lookup-tool nil)
+         (read-package-file-tool nil))
 
     ;; Find our tools in the list
     (dotimes (i (length tools))
@@ -377,13 +378,16 @@ Any tool not found will be nil in the list."
          ((string= name "elisp-describe-variable")
           (setq describe-variable-tool tool))
          ((string= name "elisp-info-lookup-symbol")
-          (setq info-lookup-tool tool)))))
+          (setq info-lookup-tool tool))
+         ((string= name "elisp-read-package-file")
+          (setq read-package-file-tool tool)))))
 
     (list
      describe-function-tool
      get-definition-tool
      describe-variable-tool
-     info-lookup-tool)))
+     info-lookup-tool
+     read-package-file-tool)))
 
 (ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
     ()
@@ -399,13 +403,15 @@ Any tool not found will be nil in the list."
                (describe-function-tool (nth 0 tools))
                (get-definition-tool (nth 1 tools))
                (describe-variable-tool (nth 2 tools))
-               (info-lookup-tool (nth 3 tools)))
+               (info-lookup-tool (nth 3 tools))
+               (read-package-file-tool (nth 4 tools)))
 
           ;; Verify all tools are registered
           (should describe-function-tool)
           (should get-definition-tool)
           (should describe-variable-tool)
           (should info-lookup-tool)
+          (should read-package-file-tool)
 
           ;; Verify read-only annotations for all tools
           (dolist (tool
@@ -413,7 +419,8 @@ Any tool not found will be nil in the list."
                     describe-function-tool
                     get-definition-tool
                     describe-variable-tool
-                    info-lookup-tool))
+                    info-lookup-tool
+                    read-package-file-tool))
             (let ((annotations (assoc-default 'annotations tool)))
               (should annotations)
               (should
@@ -429,6 +436,7 @@ Any tool not found will be nil in the list."
             (should-not (nth 1 tools)) ;; get-definition should be gone
             (should-not (nth 2 tools)) ;; describe-variable should be gone
             (should-not (nth 3 tools)) ;; info-lookup should be gone
+            (should-not (nth 4 tools)) ;; read-package-file should be gone
             )))
 
     ;; Clean up
@@ -1257,6 +1265,120 @@ X and Y are dynamically scoped arguments."
         (should (stringp content))
         (should (string-match-p "load-path" content))
         (should (string-match-p "directories" content))))))
+
+(ert-deftest elisp-dev-mcp-test-read-package-file ()
+  "Test that `elisp-read-package-file` can read installed package files."
+  (elisp-dev-mcp-test-with-server
+    ;; Test reading mcp-server-lib main file
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file"
+             1
+             `((package-file . "mcp-server-lib/mcp-server-lib.el"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      ;; Should contain the file header
+      (should (string-match-p ";;; mcp-server-lib.el" text))
+      ;; Should contain package metadata
+      (should (string-match-p "Model Context Protocol" text))
+      ;; Should end with proper footer
+      (should
+       (string-match-p ";;; mcp-server-lib.el ends here" text)))))
+
+(ert-deftest elisp-dev-mcp-test-read-package-file-secondary ()
+  "Test reading secondary files from packages."
+  (elisp-dev-mcp-test-with-server
+    ;; Test reading mcp-server-lib commands file
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file" 1
+             `((package-file
+                . "mcp-server-lib/mcp-server-lib-commands.el"))))
+           (resp (elisp-dev-mcp-test--send-req req))
+           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+      ;; Should contain the commands file content
+      (should (string-match-p ";;; mcp-server-lib-commands.el" text))
+      (should (string-match-p "defun mcp-start" text))
+      (should (string-match-p "defun mcp-stop" text)))))
+
+(ert-deftest elisp-dev-mcp-test-read-package-file-invalid-format ()
+  "Test that `elisp-read-package-file` rejects invalid formats."
+  (elisp-dev-mcp-test-with-server
+    ;; Test missing slash
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file"
+             1
+             `((package-file . "mcp-server-lib"))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid format. Use 'package-name/file.el'"))
+
+    ;; Test missing .el extension
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file"
+             1
+             `((package-file . "mcp-server-lib/file"))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid format. Use 'package-name/file.el'"))
+
+    ;; Test multiple slashes
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file"
+             1
+             `((package-file . "mcp/server/lib.el"))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid format. Use 'package-name/file.el'"))))
+
+(ert-deftest elisp-dev-mcp-test-read-package-file-not-found ()
+  "Test that `elisp-read-package-file` handles missing files gracefully."
+  (elisp-dev-mcp-test-with-server
+    ;; Test non-existent package
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file"
+             1
+             `((package-file . "non-existent-package/file.el"))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "File not found: non-existent-package/file.el"))
+
+    ;; Test non-existent file in real package
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file"
+             1
+             `((package-file . "mcp-server-lib/missing.el"))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "File not found: mcp-server-lib/missing.el"))))
+
+(ert-deftest elisp-dev-mcp-test-read-package-file-security ()
+  "Test that `elisp-read-package-file` enforces security restrictions."
+  (elisp-dev-mcp-test-with-server
+    ;; Test path traversal attempt
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file" 1
+             `((package-file
+                . "mcp-server-lib/../../../etc/passwd"))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid format. Use 'package-name/file.el'"))
+
+    ;; Test non-.el file
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-read-package-file"
+             1
+             `((package-file . "mcp-server-lib/file.elc"))))
+           (resp (elisp-dev-mcp-test--send-req req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp "Invalid format. Use 'package-name/file.el'"))))
 
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()

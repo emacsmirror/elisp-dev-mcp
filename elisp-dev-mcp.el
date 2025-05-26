@@ -558,6 +558,33 @@ MCP Parameters:
         (format "Symbol '%s' not found in Elisp Info documentation"
                 symbol))))))
 
+(defun elisp-dev-mcp--read-package-file (package-file)
+  "Read an Elisp file from installed ELPA packages.
+Returns the complete file contents as a string.
+PACKAGE-FILE is in format \"package-name/file.el\".
+
+MCP Parameters:
+  package-file - Package/filename (e.g. \"mcp-server-lib/mcp-server-lib.el\")"
+  (mcp-server-lib-with-error-handling
+   (unless (string-match
+            "\\`\\([^/]+\\)/\\([^/]+\\.el\\)\\'" package-file)
+     (mcp-server-lib-tool-throw
+      "Invalid format. Use 'package-name/file.el'"))
+   (let* ((package-name (match-string 1 package-file))
+          (file-name (match-string 2 package-file))
+          (package-dir
+           (file-name-as-directory
+            (expand-file-name
+             package-name
+             (expand-file-name "elpa" user-emacs-directory))))
+          (full-path (expand-file-name file-name package-dir)))
+     (unless (file-exists-p full-path)
+       (mcp-server-lib-tool-throw
+        (format "File not found: %s" package-file)))
+     (with-temp-buffer
+       (insert-file-contents full-path)
+       (buffer-string)))))
+
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
   "Enable the Elisp development MCP tools."
@@ -707,6 +734,27 @@ Error cases:
 - Symbol not found in documentation
 - Invalid symbol name
 - Info system unavailable"
+   :read-only t)
+  (mcp-server-lib-register-tool
+   #'elisp-dev-mcp--read-package-file
+   :id "elisp-read-package-file"
+   :description
+   "Read Elisp source files from installed ELPA packages. Only reads .el files
+from the user's elpa/ directory for security.
+
+Parameters:
+  package-file - Package/filename format \"package-name/file.el\" (string)
+
+Returns the complete file contents as a string.
+
+Examples:
+- \"mcp-server-lib/mcp-server-lib.el\" - Read main package file
+- \"magit/magit-status.el\" - Read specific module from package
+
+Error cases:
+- Invalid format (missing slash, wrong extension, path traversal)
+- Package not found
+- File not found within package"
    :read-only t))
 
 ;;;###autoload
@@ -715,7 +763,8 @@ Error cases:
   (mcp-server-lib-unregister-tool "elisp-describe-function")
   (mcp-server-lib-unregister-tool "elisp-get-function-definition")
   (mcp-server-lib-unregister-tool "elisp-describe-variable")
-  (mcp-server-lib-unregister-tool "elisp-info-lookup-symbol"))
+  (mcp-server-lib-unregister-tool "elisp-info-lookup-symbol")
+  (mcp-server-lib-unregister-tool "elisp-read-package-file"))
 
 (provide 'elisp-dev-mcp)
 ;;; elisp-dev-mcp.el ends here

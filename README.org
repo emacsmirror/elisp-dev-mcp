@@ -88,6 +88,19 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. St
   - =info-ref=: Info reference like '(elisp)Node Name' for direct access (string, when found)
   - =message=: Error or not-found message (string, when not found)
 
+*** Elisp Package File Reader
+- Name: =elisp-read-package-file=
+- Description: Read Elisp source files from installed ELPA packages
+- Parameters:
+  - =package-file=: Package and filename in format "package-name/file.el" (string)
+- Returns:
+  - The complete file contents as a string
+  - or =error=: Error message if file not found or invalid format (string)
+- Examples:
+  - ="mcp-server-lib/mcp-server-lib.el"= - Read main package file
+  - ="magit/magit-status.el"= - Read specific module from package
+- Security: Only reads =.el= files from ELPA directory
+
 * License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the LICENSE file for details.
