@@ -20,6 +20,18 @@
 (require 'info-look)
 
 
+;;; System Directory Setup
+
+(defvar elisp-dev-mcp--system-lisp-dir
+  (let* ((data-parent
+          (file-name-directory (directory-file-name data-directory)))
+         (lisp-dir (expand-file-name "lisp/" data-parent)))
+    (when (file-directory-p lisp-dir)
+      lisp-dir))
+  "System Lisp directory for Emacs installation.
+Computed once at package load time from `data-directory'.")
+
+
 ;;; Utility Functions
 
 (defun elisp-dev-mcp--non-empty-docstring-p (doc)
@@ -558,32 +570,62 @@ MCP Parameters:
         (format "Symbol '%s' not found in Elisp Info documentation"
                 symbol))))))
 
-(defun elisp-dev-mcp--read-package-file (package-file)
-  "Read an Elisp file from installed ELPA packages.
-Returns the complete file contents as a string.
-PACKAGE-FILE is in format \"package-name/file.el\".
+(defun elisp-dev-mcp--read-source-file (file-path)
+  "Read Elisp source file from allowed locations.
+Accepts absolute FILE-PATH as returned by other elisp-dev tools.
+Handles both .el and .el.gz files transparently.
 
 MCP Parameters:
-  package-file - Package/filename (e.g. \"mcp-server-lib/mcp-server-lib.el\")"
+  file-path - Absolute path to .el file"
   (mcp-server-lib-with-error-handling
-   (unless (string-match
-            "\\`\\([^/]+\\)/\\([^/]+\\.el\\)\\'" package-file)
+   ;; 1. Validate input format
+   (unless (and (stringp file-path)
+                (file-name-absolute-p file-path)
+                (string-suffix-p ".el" file-path))
      (mcp-server-lib-tool-throw
-      "Invalid format. Use 'package-name/file.el'"))
-   (let* ((package-name (match-string 1 package-file))
-          (file-name (match-string 2 package-file))
-          (package-dir
-           (file-name-as-directory
-            (expand-file-name
-             package-name
-             (expand-file-name "elpa" user-emacs-directory))))
-          (full-path (expand-file-name file-name package-dir)))
-     (unless (file-exists-p full-path)
+      "Invalid path format: must be absolute path ending in .el"))
+
+   ;; 2. Check for path traversal
+   (when (string-match-p "\\.\\." file-path)
+     (mcp-server-lib-tool-throw
+      "Path contains illegal '..' traversal"))
+
+   ;; 3. Resolve symlinks and validate location
+   (let* ((true-path (file-truename file-path))
+          (elpa-dir
+           (file-truename
+            (expand-file-name "elpa/" user-emacs-directory)))
+          (system-lisp-dir
+           (when elisp-dev-mcp--system-lisp-dir
+             (file-truename elisp-dev-mcp--system-lisp-dir)))
+          (allowed-p
+           (or (string-prefix-p elpa-dir true-path)
+               (and system-lisp-dir
+                    (string-prefix-p system-lisp-dir true-path)))))
+
+     (unless allowed-p
        (mcp-server-lib-tool-throw
-        (format "File not found: %s" package-file)))
-     (with-temp-buffer
-       (insert-file-contents full-path)
-       (buffer-string)))))
+        "Access denied: path outside allowed directories"))
+
+     ;; 4. Find actual file (.el or .el.gz)
+     (let ((actual-file
+            (cond
+             ((file-exists-p true-path)
+              true-path)
+             ((file-exists-p (concat true-path ".gz"))
+              (concat true-path ".gz"))
+             (t
+              nil))))
+
+       (unless actual-file
+         (mcp-server-lib-tool-throw
+          (format "File not found: %s (tried .el and .el.gz)"
+                  file-path)))
+
+       ;; 5. Read and return contents
+       (with-temp-buffer
+         (insert-file-contents actual-file)
+         (buffer-string))))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
@@ -736,25 +778,34 @@ Error cases:
 - Info system unavailable"
    :read-only t)
   (mcp-server-lib-register-tool
-   #'elisp-dev-mcp--read-package-file
-   :id "elisp-read-package-file"
+   #'elisp-dev-mcp--read-source-file
+   :id "elisp-read-source-file"
    :description
-   "Read Elisp source files from installed ELPA packages. Only reads .el files
-from the user's elpa/ directory for security.
+   "Read Elisp source files from Emacs system directories or ELPA packages.
+Designed to work with paths returned by other elisp-dev tools.
 
 Parameters:
-  package-file - Package/filename format \"package-name/file.el\" (string)
+  file-path - Absolute path to .el file (string)
 
-Returns the complete file contents as a string.
+Accepts paths like:
+- System Elisp files (from Emacs installation)
+- ELPA package files (from user-emacs-directory)
 
-Examples:
-- \"mcp-server-lib/mcp-server-lib.el\" - Read main package file
-- \"magit/magit-status.el\" - Read specific module from package
+Security:
+- Only reads from Emacs system lisp directories and ELPA directory
+- Rejects paths with \"..\" traversal
+- Resolves symlinks to prevent escaping allowed directories
+
+Features:
+- Transparently handles .el.gz compressed files
+- Works directly with paths from elisp-get-function-definition
+- Returns complete file contents as string
 
 Error cases:
-- Invalid format (missing slash, wrong extension, path traversal)
-- Package not found
-- File not found within package"
+- Invalid path format
+- Path traversal attempts
+- Access outside allowed directories
+- File not found"
    :read-only t))
 
 ;;;###autoload
@@ -764,7 +815,7 @@ Error cases:
   (mcp-server-lib-unregister-tool "elisp-get-function-definition")
   (mcp-server-lib-unregister-tool "elisp-describe-variable")
   (mcp-server-lib-unregister-tool "elisp-info-lookup-symbol")
-  (mcp-server-lib-unregister-tool "elisp-read-package-file"))
+  (mcp-server-lib-unregister-tool "elisp-read-source-file"))
 
 (provide 'elisp-dev-mcp)
 ;;; elisp-dev-mcp.el ends here

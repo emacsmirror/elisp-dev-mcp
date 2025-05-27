@@ -354,7 +354,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
   "Get the current list of MCP tools as returned by the server.
 Returns a list of our registered tools in the order:
 \(describe-function-tool get-definition-tool describe-variable-tool
-info-lookup-tool read-package-file-tool).
+info-lookup-tool read-source-file-tool).
 Any tool not found will be nil in the list."
   (let* ((req (mcp-server-lib-create-tools-list-request))
          (resp (elisp-dev-mcp-test--send-req req))
@@ -364,7 +364,7 @@ Any tool not found will be nil in the list."
          (get-definition-tool nil)
          (describe-variable-tool nil)
          (info-lookup-tool nil)
-         (read-package-file-tool nil))
+         (read-source-file-tool nil))
 
     ;; Find our tools in the list
     (dotimes (i (length tools))
@@ -379,15 +379,15 @@ Any tool not found will be nil in the list."
           (setq describe-variable-tool tool))
          ((string= name "elisp-info-lookup-symbol")
           (setq info-lookup-tool tool))
-         ((string= name "elisp-read-package-file")
-          (setq read-package-file-tool tool)))))
+         ((string= name "elisp-read-source-file")
+          (setq read-source-file-tool tool)))))
 
     (list
      describe-function-tool
      get-definition-tool
      describe-variable-tool
      info-lookup-tool
-     read-package-file-tool)))
+     read-source-file-tool)))
 
 (ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
     ()
@@ -404,14 +404,14 @@ Any tool not found will be nil in the list."
                (get-definition-tool (nth 1 tools))
                (describe-variable-tool (nth 2 tools))
                (info-lookup-tool (nth 3 tools))
-               (read-package-file-tool (nth 4 tools)))
+               (read-source-file-tool (nth 4 tools)))
 
           ;; Verify all tools are registered
           (should describe-function-tool)
           (should get-definition-tool)
           (should describe-variable-tool)
           (should info-lookup-tool)
-          (should read-package-file-tool)
+          (should read-source-file-tool)
 
           ;; Verify read-only annotations for all tools
           (dolist (tool
@@ -420,7 +420,7 @@ Any tool not found will be nil in the list."
                     get-definition-tool
                     describe-variable-tool
                     info-lookup-tool
-                    read-package-file-tool))
+                    read-source-file-tool))
             (let ((annotations (assoc-default 'annotations tool)))
               (should annotations)
               (should
@@ -436,7 +436,7 @@ Any tool not found will be nil in the list."
             (should-not (nth 1 tools)) ;; get-definition should be gone
             (should-not (nth 2 tools)) ;; describe-variable should be gone
             (should-not (nth 3 tools)) ;; info-lookup should be gone
-            (should-not (nth 4 tools)) ;; read-package-file should be gone
+            (should-not (nth 4 tools)) ;; read-source-file should be gone
             )))
 
     ;; Clean up
@@ -1266,15 +1266,19 @@ X and Y are dynamically scoped arguments."
         (should (string-match-p "load-path" content))
         (should (string-match-p "directories" content))))))
 
-(ert-deftest elisp-dev-mcp-test-read-package-file ()
-  "Test that `elisp-read-package-file` can read installed package files."
+(ert-deftest elisp-dev-mcp-test-read-source-file-elpa ()
+  "Test that `elisp-read-source-file` can read installed ELPA package files."
   (elisp-dev-mcp-test-with-server
-    ;; Test reading mcp-server-lib main file
-    (let* ((req
+    ;; Test reading mcp-server-lib main file - it's a mandatory dependency
+    (let* ((mcp-dir
+            (car
+             (directory-files
+              (expand-file-name "elpa/" user-emacs-directory)
+              t "^mcp-server-lib\\(-\\|$\\)")))
+           (elpa-path (expand-file-name "mcp-server-lib.el" mcp-dir))
+           (req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file"
-             1
-             `((package-file . "mcp-server-lib/mcp-server-lib.el"))))
+             "elisp-read-source-file" 1 `((file-path . ,elpa-path))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
       ;; Should contain the file header
@@ -1285,100 +1289,94 @@ X and Y are dynamically scoped arguments."
       (should
        (string-match-p ";;; mcp-server-lib.el ends here" text)))))
 
-(ert-deftest elisp-dev-mcp-test-read-package-file-secondary ()
-  "Test reading secondary files from packages."
+(ert-deftest elisp-dev-mcp-test-read-source-file-system ()
+  "Test that `elisp-read-source-file` can read Emacs system files."
   (elisp-dev-mcp-test-with-server
-    ;; Test reading mcp-server-lib commands file
-    (let* ((req
+    ;; Test reading a system file that should exist in all Emacs installations
+    (let* ((system-file
+            (concat
+             (file-name-sans-extension
+              (locate-library "subr"))
+             ".el"))
+           (req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file" 1
-             `((package-file
-                . "mcp-server-lib/mcp-server-lib-commands.el"))))
+             "elisp-read-source-file"
+             1
+             `((file-path . ,system-file))))
            (resp (elisp-dev-mcp-test--send-req req))
            (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
-      ;; Should contain the commands file content
-      (should (string-match-p ";;; mcp-server-lib-commands.el" text))
-      (should (string-match-p "defun mcp-start" text))
-      (should (string-match-p "defun mcp-stop" text)))))
+      ;; Verify that subr.el doesn't exist but subr.el.gz does
+      (should-not (file-exists-p system-file))
+      (should (file-exists-p (concat system-file ".gz")))
+      ;; Should contain typical Emacs system file content
+      ;; This verifies that .gz files are handled transparently
+      (should (string-match-p ";;; subr.el" text))
+      (should (string-match-p "GNU Emacs" text)))))
 
-(ert-deftest elisp-dev-mcp-test-read-package-file-invalid-format ()
-  "Test that `elisp-read-package-file` rejects invalid formats."
+(ert-deftest elisp-dev-mcp-test-read-source-file-invalid-format ()
+  "Test that `elisp-read-source-file` rejects invalid formats."
   (elisp-dev-mcp-test-with-server
-    ;; Test missing slash
+    ;; Test relative path
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file"
+             "elisp-read-source-file"
              1
-             `((package-file . "mcp-server-lib"))))
+             `((file-path . "relative/path.el"))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Invalid format. Use 'package-name/file.el'"))
+       resp
+       "Invalid path format: must be absolute path ending in .el"))
 
-    ;; Test missing .el extension
+    ;; Test path not ending in .el
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file"
+             "elisp-read-source-file"
              1
-             `((package-file . "mcp-server-lib/file"))))
+             `((file-path . "/absolute/path/file.elc"))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Invalid format. Use 'package-name/file.el'"))
+       resp
+       "Invalid path format: must be absolute path ending in .el"))
 
-    ;; Test multiple slashes
+    ;; Test path with .. traversal
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file"
+             "elisp-read-source-file"
              1
-             `((package-file . "mcp/server/lib.el"))))
+             `((file-path . "/some/path/../../../etc/passwd.el"))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Invalid format. Use 'package-name/file.el'"))))
+       resp "Path contains illegal '..' traversal"))))
 
-(ert-deftest elisp-dev-mcp-test-read-package-file-not-found ()
-  "Test that `elisp-read-package-file` handles missing files gracefully."
+(ert-deftest elisp-dev-mcp-test-read-source-file-not-found ()
+  "Test that `elisp-read-source-file` handles missing files gracefully."
   (elisp-dev-mcp-test-with-server
-    ;; Test non-existent package
-    (let* ((req
+    ;; Test non-existent file in a valid directory
+    (let* ((elpa-dir
+            (file-name-directory (locate-library "mcp-server-lib")))
+           (non-existent-path
+            (expand-file-name "non-existent-file.el" elpa-dir))
+           (req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file"
+             "elisp-read-source-file"
              1
-             `((package-file . "non-existent-package/file.el"))))
+             `((file-path . ,non-existent-path))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "File not found: non-existent-package/file.el"))
+       resp "File not found: .* (tried .el and .el.gz)"))))
 
-    ;; Test non-existent file in real package
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file"
-             1
-             `((package-file . "mcp-server-lib/missing.el"))))
-           (resp (elisp-dev-mcp-test--send-req req)))
-      (elisp-dev-mcp-test--verify-error-resp
-       resp "File not found: mcp-server-lib/missing.el"))))
-
-(ert-deftest elisp-dev-mcp-test-read-package-file-security ()
-  "Test that `elisp-read-package-file` enforces security restrictions."
+(ert-deftest elisp-dev-mcp-test-read-source-file-security ()
+  "Test that `elisp-read-source-file` enforces security restrictions."
   (elisp-dev-mcp-test-with-server
-    ;; Test path traversal attempt
+    ;; Test access outside allowed directories
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file" 1
-             `((package-file
-                . "mcp-server-lib/../../../etc/passwd"))))
-           (resp (elisp-dev-mcp-test--send-req req)))
-      (elisp-dev-mcp-test--verify-error-resp
-       resp "Invalid format. Use 'package-name/file.el'"))
-
-    ;; Test non-.el file
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-read-package-file"
+             "elisp-read-source-file"
              1
-             `((package-file . "mcp-server-lib/file.elc"))))
+             `((file-path . "/etc/passwd.el"))))
            (resp (elisp-dev-mcp-test--send-req req)))
       (elisp-dev-mcp-test--verify-error-resp
-       resp "Invalid format. Use 'package-name/file.el'"))))
+       resp "Access denied: path outside allowed directories"))))
 
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()

@@ -88,18 +88,25 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. St
   - =info-ref=: Info reference like '(elisp)Node Name' for direct access (string, when found)
   - =message=: Error or not-found message (string, when not found)
 
-*** Elisp Package File Reader
-- Name: =elisp-read-package-file=
-- Description: Read Elisp source files from installed ELPA packages
+*** Elisp Source File Reader
+- Name: =elisp-read-source-file=
+- Description: Read Elisp source files from Emacs system directories or ELPA packages
 - Parameters:
-  - =package-file=: Package and filename in format "package-name/file.el" (string)
+  - =file-path=: Absolute path to =.el= file (string)
 - Returns:
   - The complete file contents as a string
-  - or =error=: Error message if file not found or invalid format (string)
+  - or =error=: Error message if file not found, invalid format, or access denied (string)
 - Examples:
-  - ="mcp-server-lib/mcp-server-lib.el"= - Read main package file
-  - ="magit/magit-status.el"= - Read specific module from package
-- Security: Only reads =.el= files from ELPA directory
+  - ="/opt/homebrew/Cellar/emacs-mac/emacs-29.1-mac-10.0/share/emacs/29.1/lisp/files.el"= - Read system file
+  - ="/Users/name/.emacs.d/elpa/package-1.0/package.el"= - Read ELPA package
+- Security:
+  - Only reads from Emacs system lisp directories and =~/.emacs.d/elpa/=
+  - Rejects paths with =..= traversal
+  - Resolves symlinks to prevent escaping allowed directories
+- Features:
+  - Transparently handles =.el.gz= compressed files
+  - Works directly with paths from =elisp-get-function-definition=
+  - Returns complete file contents as string
 
 * License
 
