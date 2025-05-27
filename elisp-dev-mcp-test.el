@@ -60,11 +60,11 @@ X is the input value that will be doubled."
   (declare (indent defun) (debug t))
   `(unwind-protect
        (progn
-         (mcp-start)
+         (mcp-server-lib-start)
          (elisp-dev-mcp-enable)
          ,@body)
      (elisp-dev-mcp-disable)
-     (mcp-stop)))
+     (mcp-server-lib-stop)))
 
 ;;; Test variables
 
@@ -395,7 +395,7 @@ Any tool not found will be nil in the list."
   ;; First test that tools are properly registered with annotations
   (unwind-protect
       (progn
-        (mcp-start)
+        (mcp-server-lib-start)
         (elisp-dev-mcp-enable)
 
         ;; Check tool registration
@@ -441,7 +441,7 @@ Any tool not found will be nil in the list."
 
     ;; Clean up
     (elisp-dev-mcp-disable)
-    (mcp-stop)))
+    (mcp-server-lib-stop)))
 
 (ert-deftest elisp-dev-mcp-test-get-function-definition ()
   "Test that `elisp-get-function-definition' MCP handler works correctly."

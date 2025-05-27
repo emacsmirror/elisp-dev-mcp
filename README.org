@@ -17,13 +17,13 @@ This package leverages [[https://github.com/laurynas-biveinis/mcp-server-lib.el]
 
 ** Registering with an MCP Client
 
-To use =elisp-dev-mcp= with an MCP client like Claude Code, you need to register it using the =emacs-mcp-stdio.sh= script provided by [[https://github.com/laurynas-biveinis/mcp-server-lib.el][mcp-server-lib.el]], using =elisp-dev-mcp-enable= and =elisp-dev-mcp-disable= as MCP init and stop functions:
+After =mcp-server-lib= has been properly installed (including =M-x mcp-server-lib-install=), register =elisp-dev-mcp= with your MCP client:
 
 #+begin_example
-claude mcp add -s user -t stdio elisp-dev -- $HOME/.emacs.d/elpa/mcp-server-lib/emacs-mcp-stdio.sh --init-function=elisp-dev-mcp-enable --stop-function=elisp-dev-mcp-disable
+claude mcp add -s user -t stdio elisp-dev -- ~/.emacs.d/emacs-mcp-stdio.sh --init-function=elisp-dev-mcp-enable --stop-function=elisp-dev-mcp-disable
 #+end_example
 
-Before using the MCP server, you must start it in Emacs with =M-x mcp-start=. Stop it with =M-x mcp-stop= when done.
+Before using the MCP server, you must start it in Emacs with =M-x mcp-server-lib-start=. Stop it with =M-x mcp-server-lib-stop= when done.
 
 ** Available MCP Handlers
 
