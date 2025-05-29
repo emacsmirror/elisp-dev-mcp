@@ -18,6 +18,7 @@
 (require 'json)
 (require 'mcp-server-lib)
 (require 'mcp-server-lib-commands)
+(require 'mcp-server-lib-ert)
 (require 'elisp-dev-mcp)
 (require 'elisp-dev-mcp-test-no-checkdoc)
 
@@ -138,31 +139,12 @@ X is the input value that will be doubled."
 
 ;;; Helpers to analyze response JSON
 
-(defun elisp-dev-mcp-test--check-resp-get-text (response is-error)
-  "Check that RESPONSE has expected structure and extract text.
-If IS-ERROR is non-nil, checks it's an error response, otherwise a success.
-Returns the text content when validation passes."
-  (let ((result (assoc-default 'result response)))
-    (should result)
-    (should (assoc-default 'content result))
-    (should (= 1 (length (assoc-default 'content result))))
-    (should
-     (eq
-      (assoc-default 'isError result)
-      (if is-error
-          t
-        :json-false)))
-    (let ((text-item (aref (assoc-default 'content result) 0)))
-      (should (string= "text" (assoc-default 'type text-item)))
-      (should (stringp (assoc-default 'text text-item)))
-      (assoc-default 'text text-item))))
-
 (defun elisp-dev-mcp-test--verify-error-resp (response error-pattern)
   "Verify that RESPONSE is an error response matching ERROR-PATTERN."
   (should
    (string-match-p
     error-pattern
-    (elisp-dev-mcp-test--check-resp-get-text response t))))
+    (mcp-server-lib-ert-check-text-response response t))))
 
 (defun elisp-dev-mcp-test--get-definition-response-data
     (function-name)
@@ -170,7 +152,7 @@ Returns the text content when validation passes."
 Returns the parsed JSON response object."
   (let* ((req (elisp-dev-mcp-test--definition-req function-name))
          (resp (elisp-dev-mcp-test--send-req req))
-         (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+         (text (mcp-server-lib-ert-check-text-response resp nil)))
     (json-read-from-string text)))
 
 (defun elisp-dev-mcp-test--verify-definition-in-test-file
@@ -221,7 +203,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
   (elisp-dev-mcp-test-with-server
     (let* ((req (elisp-dev-mcp-test--describe-req "defun"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       (should (string-match-p "defun" text)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-nonexistent-function ()
@@ -264,7 +246,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
   (elisp-dev-mcp-test-with-server
     (let* ((req (elisp-dev-mcp-test--describe-req "when"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       (should (string-match-p "when" text))
       (should (string-match-p "macro" text)))))
 
@@ -275,7 +257,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test--inline-function"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       (should
        (string-match-p "elisp-dev-mcp-test--inline-function" text))
       (should (string-match-p "inline" text)))))
@@ -287,7 +269,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test--with-header-comment"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -311,7 +293,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test-no-checkdoc--no-docstring"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -331,7 +313,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test-no-checkdoc--empty-docstring"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -573,7 +555,7 @@ D captures remaining arguments."
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test--aliased-function"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
 
       ;; Should indicate it's an alias
       (should (string-match-p "alias" text))
@@ -764,7 +746,7 @@ D captures remaining arguments."
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test-dynamic--with-header-comment"))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
 
       ;; Should contain the function name
       (should
@@ -842,7 +824,7 @@ X and Y are dynamically scoped arguments."
                      test-function-name))
                    (resp (elisp-dev-mcp-test--send-req req))
                    (text
-                    (elisp-dev-mcp-test--check-resp-get-text
+                    (mcp-server-lib-ert-check-text-response
                      resp nil)))
               (should (string-match-p test-function-name text))
               (elisp-dev-mcp-test--check-dynamic-text text)
@@ -861,7 +843,7 @@ X and Y are dynamically scoped arguments."
             (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable" 1 `((variable . "load-path"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       ;; Basic checks for a well-known variable
       (should (string= (assoc-default 'name parsed) "load-path"))
@@ -912,7 +894,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--undocumented-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       ;; Check the response
       (should
@@ -937,7 +919,7 @@ X and Y are dynamically scoped arguments."
               .
               "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var"))))
          (resp (elisp-dev-mcp-test--send-req req))
-         (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+         (text (mcp-server-lib-ert-check-text-response resp nil))
          (parsed (json-read-from-string text)))
       ;; Check the response
       (should
@@ -958,7 +940,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--custom-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       ;; Check the response
       (should
@@ -992,7 +974,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--interactive-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       ;; Check the response
       (should
@@ -1019,7 +1001,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--obsolete-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       ;; Check the response
       (should
@@ -1051,7 +1033,7 @@ X and Y are dynamically scoped arguments."
              `((variable
                 . "elisp-dev-mcp-test--unbound-documented-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should
        (string=
@@ -1079,7 +1061,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--a"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should
        (string= (assoc-default 'name parsed) "elisp-dev-mcp-test--a"))
@@ -1099,7 +1081,7 @@ X and Y are dynamically scoped arguments."
             (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable" 1 `((variable . "load-path"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (string= (assoc-default 'name parsed) "load-path"))
       (should (eq (assoc-default 'bound parsed) t))
@@ -1115,7 +1097,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--custom-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'is-custom parsed) t))
       (should
@@ -1131,7 +1113,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--custom-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'is-custom parsed) t))
       (should
@@ -1147,7 +1129,7 @@ X and Y are dynamically scoped arguments."
              1
              `((variable . "elisp-dev-mcp-test--custom-choice-var"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'is-custom parsed) t))
       (let ((custom-type (assoc-default 'custom-type parsed)))
@@ -1163,7 +1145,7 @@ X and Y are dynamically scoped arguments."
             (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "defun"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'found parsed) t))
       (should (string= (assoc-default 'symbol parsed) "defun"))
@@ -1185,7 +1167,7 @@ X and Y are dynamically scoped arguments."
              1
              `((symbol . "non-existent-symbol-xyz"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'found parsed) :json-false))
       (should
@@ -1223,7 +1205,7 @@ X and Y are dynamically scoped arguments."
             (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "mapcar"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'found parsed) t))
       (should (string= (assoc-default 'symbol parsed) "mapcar"))
@@ -1241,7 +1223,7 @@ X and Y are dynamically scoped arguments."
             (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "let"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'found parsed) t))
       (should (string= (assoc-default 'symbol parsed) "let"))
@@ -1257,7 +1239,7 @@ X and Y are dynamically scoped arguments."
             (mcp-server-lib-create-tools-call-request
              "elisp-info-lookup-symbol" 1 `((symbol . "load-path"))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil))
+           (text (mcp-server-lib-ert-check-text-response resp nil))
            (parsed (json-read-from-string text)))
       (should (eq (assoc-default 'found parsed) t))
       (should (string= (assoc-default 'symbol parsed) "load-path"))
@@ -1280,7 +1262,7 @@ X and Y are dynamically scoped arguments."
             (mcp-server-lib-create-tools-call-request
              "elisp-read-source-file" 1 `((file-path . ,elpa-path))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       ;; Should contain the file header
       (should (string-match-p ";;; mcp-server-lib.el" text))
       ;; Should contain package metadata
@@ -1304,7 +1286,7 @@ X and Y are dynamically scoped arguments."
              1
              `((file-path . ,system-file))))
            (resp (elisp-dev-mcp-test--send-req req))
-           (text (elisp-dev-mcp-test--check-resp-get-text resp nil)))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
       ;; Verify that subr.el doesn't exist but subr.el.gz does
       (should-not (file-exists-p system-file))
       (should (file-exists-p (concat system-file ".gz")))
@@ -1395,7 +1377,7 @@ X and Y are dynamically scoped arguments."
                      "elisp-dev-mcp-test-bytecode--with-header"))
                    (resp (elisp-dev-mcp-test--send-req req))
                    (text
-                    (elisp-dev-mcp-test--check-resp-get-text
+                    (mcp-server-lib-ert-check-text-response
                      resp nil)))
 
               (should
