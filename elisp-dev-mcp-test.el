@@ -134,7 +134,7 @@ X is the input value that will be doubled."
 
 (defun elisp-dev-mcp-test--send-req (request)
   "Send REQUEST to the MCP server and return parsed response data."
-  (json-read-from-string (mcp-server-lib-process-jsonrpc request)))
+  (mcp-server-lib-process-jsonrpc-parsed request))
 
 ;;; Helpers to analyze response JSON
 
