@@ -227,6 +227,17 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
     (dolist (pattern expected-patterns)
       (should (string-match-p pattern source)))))
 
+(defun elisp-dev-mcp-test--get-parsed-response (tool-name args)
+  "Get parsed JSON response for TOOL-NAME with ARGS.
+ARGS should be an alist of parameter names and values."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             tool-name 1 args))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req))
+           (text (mcp-server-lib-ert-check-text-response resp nil)))
+      (json-read-from-string text))))
+
 ;;; Tests
 
 (ert-deftest elisp-dev-mcp-test-describe-function ()
@@ -857,18 +868,14 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-describe-variable ()
   "Test that `describe-variable' MCP handler works correctly."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable" 1 `((variable . "load-path"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      ;; Basic checks for a well-known variable
-      (should (string= (assoc-default 'name parsed) "load-path"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "cons"))
-      (should (stringp (assoc-default 'documentation parsed))))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable" '((variable . "load-path")))))
+    ;; Basic checks for a well-known variable
+    (should (string= (assoc-default 'name parsed) "load-path"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "cons"))
+    (should (stringp (assoc-default 'documentation parsed)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-nonexistent-variable ()
   "Test that `describe-variable' MCP handler handles non-existent variables."
@@ -894,298 +901,229 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-no-docstring ()
   "Test `describe-variable' MCP handler with undocumented variables."
-  (elisp-dev-mcp-test-with-server
-    ;; Create a variable without documentation
-    (setq elisp-dev-mcp-test--undocumented-var 42)
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--undocumented-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      ;; Check the response
-      (should
-       (string=
-        (assoc-default 'name parsed)
-        "elisp-dev-mcp-test--undocumented-var"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "integer"))
-      ;; Documentation should be null for undocumented variables
-      (should (null (assoc-default 'documentation parsed)))
-      ;; Should NOT be a custom variable
-      (should (eq (assoc-default 'is-custom parsed) :json-false)))))
+  ;; Create a variable without documentation
+  (setq elisp-dev-mcp-test--undocumented-var 42)
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--undocumented-var")))))
+    ;; Check the response
+    (should
+     (string=
+      (assoc-default 'name parsed)
+      "elisp-dev-mcp-test--undocumented-var"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "integer"))
+    ;; Documentation should be null for undocumented variables
+    (should (null (assoc-default 'documentation parsed)))
+    ;; Should NOT be a custom variable
+    (should (eq (assoc-default 'is-custom parsed) :json-false))))
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-empty-docstring ()
   "Test `describe-variable' MCP handler with empty docstring variables."
-  (elisp-dev-mcp-test-with-server
-    (let*
-        ((req
-          (mcp-server-lib-create-tools-call-request
-           "elisp-describe-variable" 1
-           `((variable
-              .
-              "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var"))))
-         (resp (mcp-server-lib-process-jsonrpc-parsed req))
-         (text (mcp-server-lib-ert-check-text-response resp nil))
-         (parsed (json-read-from-string text)))
-      ;; Check the response
-      (should
-       (string=
-        (assoc-default 'name parsed)
-        "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "symbol"))
-      ;; Empty docstring should be returned as empty string
-      (should (string= (assoc-default 'documentation parsed) "")))))
+  (let
+      ((parsed
+        (elisp-dev-mcp-test--get-parsed-response
+         "elisp-describe-variable"
+         '((variable
+            .
+            "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var")))))
+    ;; Check the response
+    (should
+     (string=
+      (assoc-default 'name parsed)
+      "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "symbol"))
+    ;; Empty docstring should be returned as empty string
+    (should (string= (assoc-default 'documentation parsed) ""))))
 
 (ert-deftest elisp-dev-mcp-test-describe-custom-variable ()
   "Test `describe-variable' MCP handler with custom variables."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--custom-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      ;; Check the response
-      (should
-       (string=
-        (assoc-default 'name parsed)
-        "elisp-dev-mcp-test--custom-var"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "string"))
-      (should
-       (string=
-        (assoc-default 'documentation parsed)
-        "A custom variable for testing."))
-      ;; Should show it's in the test file
-      (let ((source-file (assoc-default 'source-file parsed)))
-        (should (stringp source-file))
-        (should
-         (string-match-p "elisp-dev-mcp-test\\.el" source-file)))
-      ;; Should indicate it's a custom variable
-      (should (eq (assoc-default 'is-custom parsed) t)))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--custom-var")))))
+    ;; Check the response
+    (should
+     (string=
+      (assoc-default 'name parsed) "elisp-dev-mcp-test--custom-var"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "string"))
+    (should
+     (string=
+      (assoc-default 'documentation parsed)
+      "A custom variable for testing."))
+    ;; Should show it's in the test file
+    (let ((source-file (assoc-default 'source-file parsed)))
+      (should (stringp source-file))
+      (should (string-match-p "elisp-dev-mcp-test\\.el" source-file)))
+    ;; Should indicate it's a custom variable
+    (should (eq (assoc-default 'is-custom parsed) t))))
 
 (ert-deftest elisp-dev-mcp-test-describe-interactive-variable ()
   "Test `describe-variable' MCP handler with interactively defined variables."
-  (elisp-dev-mcp-test-with-server
-    ;; Define a variable interactively (not from a file)
-    (eval
-     '(defvar elisp-dev-mcp-test--interactive-var 123
-        "An interactively defined variable."))
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--interactive-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      ;; Check the response
-      (should
-       (string=
-        (assoc-default 'name parsed)
-        "elisp-dev-mcp-test--interactive-var"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "integer"))
-      (should
-       (string=
-        (assoc-default 'documentation parsed)
-        "An interactively defined variable."))
-      (should
-       (string=
-        (assoc-default 'source-file parsed)
-        "<interactively defined>")))))
+  ;; Define a variable interactively (not from a file)
+  (eval
+   '(defvar elisp-dev-mcp-test--interactive-var 123
+      "An interactively defined variable."))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--interactive-var")))))
+    ;; Check the response
+    (should
+     (string=
+      (assoc-default 'name parsed)
+      "elisp-dev-mcp-test--interactive-var"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "integer"))
+    (should
+     (string=
+      (assoc-default 'documentation parsed)
+      "An interactively defined variable."))
+    (should
+     (string=
+      (assoc-default 'source-file parsed)
+      "<interactively defined>"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-obsolete-variable ()
   "Test `describe-variable' MCP handler with obsolete variables."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--obsolete-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      ;; Check the response
-      (should
-       (string=
-        (assoc-default 'name parsed)
-        "elisp-dev-mcp-test--obsolete-var"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "string"))
-      (should
-       (string=
-        (assoc-default 'documentation parsed)
-        "An obsolete variable for testing."))
-      ;; Should indicate it's obsolete
-      (should (eq (assoc-default 'is-obsolete parsed) t))
-      ;; Should include obsolete metadata
-      (should (string= (assoc-default 'obsolete-since parsed) "1.0"))
-      (should
-       (string=
-        (assoc-default 'obsolete-replacement parsed)
-        "elisp-dev-mcp-test--new-var")))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--obsolete-var")))))
+    ;; Check the response
+    (should
+     (string=
+      (assoc-default 'name parsed)
+      "elisp-dev-mcp-test--obsolete-var"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "string"))
+    (should
+     (string=
+      (assoc-default 'documentation parsed)
+      "An obsolete variable for testing."))
+    ;; Should indicate it's obsolete
+    (should (eq (assoc-default 'is-obsolete parsed) t))
+    ;; Should include obsolete metadata
+    (should (string= (assoc-default 'obsolete-since parsed) "1.0"))
+    (should
+     (string=
+      (assoc-default 'obsolete-replacement parsed)
+      "elisp-dev-mcp-test--new-var"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-unbound-documented-variable
     ()
   "Test `describe-variable' MCP handler with unbound but documented variables."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable" 1
-             `((variable
-                . "elisp-dev-mcp-test--unbound-documented-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should
-       (string=
-        (assoc-default 'name parsed)
-        "elisp-dev-mcp-test--unbound-documented-var"))
-      (should (eq (assoc-default 'bound parsed) :json-false))
-      (should-not (assoc-default 'value-type parsed))
-      (should
-       (string=
-        (assoc-default 'documentation parsed)
-        "A documented variable that will be unbound for testing."))
-      (let ((source-file (assoc-default 'source-file parsed)))
-        (should (stringp source-file))
-        (should
-         (string-match-p "elisp-dev-mcp-test\\.el" source-file)))
-      (should (eq (assoc-default 'is-custom parsed) :json-false))
-      (should (eq (assoc-default 'is-obsolete parsed) :json-false)))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable
+             . "elisp-dev-mcp-test--unbound-documented-var")))))
+    (should
+     (string=
+      (assoc-default 'name parsed)
+      "elisp-dev-mcp-test--unbound-documented-var"))
+    (should (eq (assoc-default 'bound parsed) :json-false))
+    (should-not (assoc-default 'value-type parsed))
+    (should
+     (string=
+      (assoc-default 'documentation parsed)
+      "A documented variable that will be unbound for testing."))
+    (let ((source-file (assoc-default 'source-file parsed)))
+      (should (stringp source-file))
+      (should (string-match-p "elisp-dev-mcp-test\\.el" source-file)))
+    (should (eq (assoc-default 'is-custom parsed) :json-false))
+    (should (eq (assoc-default 'is-obsolete parsed) :json-false))))
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-alias ()
   "Test `describe-variable' MCP handler with variable aliases."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--a"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should
-       (string= (assoc-default 'name parsed) "elisp-dev-mcp-test--a"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "string"))
-      (should (string= (assoc-default 'documentation parsed) "x"))
-      (should (eq (assoc-default 'is-alias parsed) t))
-      (should
-       (string=
-        (assoc-default 'alias-target parsed)
-        "elisp-dev-mcp-test--b")))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--a")))))
+    (should
+     (string= (assoc-default 'name parsed) "elisp-dev-mcp-test--a"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "string"))
+    (should (string= (assoc-default 'documentation parsed) "x"))
+    (should (eq (assoc-default 'is-alias parsed) t))
+    (should
+     (string=
+      (assoc-default 'alias-target parsed) "elisp-dev-mcp-test--b"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-special-variable ()
   "Test `describe-variable' MCP handler with special variables."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable" 1 `((variable . "load-path"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (string= (assoc-default 'name parsed) "load-path"))
-      (should (eq (assoc-default 'bound parsed) t))
-      (should (string= (assoc-default 'value-type parsed) "cons"))
-      (should (eq (assoc-default 'is-special parsed) t)))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable" '((variable . "load-path")))))
+    (should (string= (assoc-default 'name parsed) "load-path"))
+    (should (eq (assoc-default 'bound parsed) t))
+    (should (string= (assoc-default 'value-type parsed) "cons"))
+    (should (eq (assoc-default 'is-special parsed) t))))
 
 (ert-deftest elisp-dev-mcp-test-describe-custom-variable-group ()
   "Test `describe-variable' returns custom group for defcustom variables."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--custom-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'is-custom parsed) t))
-      (should
-       (string=
-        (assoc-default 'custom-group parsed) "elisp-dev-mcp")))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--custom-var")))))
+    (should (eq (assoc-default 'is-custom parsed) t))
+    (should
+     (string= (assoc-default 'custom-group parsed) "elisp-dev-mcp"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-custom-variable-type ()
   "Test `describe-variable' returns custom type for defcustom variables."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--custom-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'is-custom parsed) t))
-      (should
-       (string= (assoc-default 'custom-type parsed) "string")))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--custom-var")))))
+    (should (eq (assoc-default 'is-custom parsed) t))
+    (should (string= (assoc-default 'custom-type parsed) "string"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-custom-variable-complex-type
     ()
   "Test `describe-variable' returns complex custom type for defcustom vars."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable"
-             1
-             `((variable . "elisp-dev-mcp-test--custom-choice-var"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'is-custom parsed) t))
-      (let ((custom-type (assoc-default 'custom-type parsed)))
-        (should (stringp custom-type))
-        (should (string-match-p "choice" custom-type))
-        (should (string-match-p "option1" custom-type))
-        (should (string-match-p "option2" custom-type))))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-describe-variable"
+          '((variable . "elisp-dev-mcp-test--custom-choice-var")))))
+    (should (eq (assoc-default 'is-custom parsed) t))
+    (let ((custom-type (assoc-default 'custom-type parsed)))
+      (should (stringp custom-type))
+      (should (string-match-p "choice" custom-type))
+      (should (string-match-p "option1" custom-type))
+      (should (string-match-p "option2" custom-type)))))
 
 (ert-deftest elisp-dev-mcp-test-info-lookup-symbol ()
   "Test that `elisp-info-lookup-symbol' MCP handler works correctly."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-info-lookup-symbol" 1 `((symbol . "defun"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'found parsed) t))
-      (should (string= (assoc-default 'symbol parsed) "defun"))
-      (should (stringp (assoc-default 'node parsed)))
-      (should (string= (assoc-default 'manual parsed) "elisp"))
-      (should (stringp (assoc-default 'content parsed)))
-      (should
-       (string-match-p "defun" (assoc-default 'content parsed)))
-      (should (stringp (assoc-default 'info-ref parsed)))
-      (should
-       (string-match-p "(elisp)" (assoc-default 'info-ref parsed))))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-info-lookup-symbol" '((symbol . "defun")))))
+    (should (eq (assoc-default 'found parsed) t))
+    (should (string= (assoc-default 'symbol parsed) "defun"))
+    (should (stringp (assoc-default 'node parsed)))
+    (should (string= (assoc-default 'manual parsed) "elisp"))
+    (should (stringp (assoc-default 'content parsed)))
+    (should (string-match-p "defun" (assoc-default 'content parsed)))
+    (should (stringp (assoc-default 'info-ref parsed)))
+    (should
+     (string-match-p "(elisp)" (assoc-default 'info-ref parsed)))))
 
 (ert-deftest elisp-dev-mcp-test-info-lookup-nonexistent-symbol ()
   "Test that `elisp-info-lookup-symbol' handles non-existent symbols."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-info-lookup-symbol"
-             1
-             `((symbol . "non-existent-symbol-xyz"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'found parsed) :json-false))
-      (should
-       (string=
-        (assoc-default 'symbol parsed) "non-existent-symbol-xyz"))
-      (should (stringp (assoc-default 'message parsed)))
-      (should
-       (string-match-p
-        "not found" (assoc-default 'message parsed))))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-info-lookup-symbol"
+          '((symbol . "non-existent-symbol-xyz")))))
+    (should (eq (assoc-default 'found parsed) :json-false))
+    (should
+     (string=
+      (assoc-default 'symbol parsed) "non-existent-symbol-xyz"))
+    (should (stringp (assoc-default 'message parsed)))
+    (should
+     (string-match-p "not found" (assoc-default 'message parsed)))))
 
 (ert-deftest elisp-dev-mcp-test-info-lookup-empty-string ()
   "Test that `elisp-info-lookup-symbol' handles empty string properly."
@@ -1204,53 +1142,41 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-info-lookup-function ()
   "Test `elisp-info-lookup-symbol' with a well-known function."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-info-lookup-symbol" 1 `((symbol . "mapcar"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'found parsed) t))
-      (should (string= (assoc-default 'symbol parsed) "mapcar"))
-      (should (stringp (assoc-default 'node parsed)))
-      (let ((content (assoc-default 'content parsed)))
-        (should (stringp content))
-        (should (string-match-p "mapcar" content))
-        (should (string-match-p "FUNCTION" content))
-        (should (string-match-p "SEQUENCE" content))))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-info-lookup-symbol" '((symbol . "mapcar")))))
+    (should (eq (assoc-default 'found parsed) t))
+    (should (string= (assoc-default 'symbol parsed) "mapcar"))
+    (should (stringp (assoc-default 'node parsed)))
+    (let ((content (assoc-default 'content parsed)))
+      (should (stringp content))
+      (should (string-match-p "mapcar" content))
+      (should (string-match-p "FUNCTION" content))
+      (should (string-match-p "SEQUENCE" content)))))
 
 (ert-deftest elisp-dev-mcp-test-info-lookup-special-form ()
   "Test `elisp-info-lookup-symbol' with a special form."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-info-lookup-symbol" 1 `((symbol . "let"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'found parsed) t))
-      (should (string= (assoc-default 'symbol parsed) "let"))
-      (let ((content (assoc-default 'content parsed)))
-        (should (stringp content))
-        (should (string-match-p "let" content))
-        (should (string-match-p "binding" content))))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-info-lookup-symbol" '((symbol . "let")))))
+    (should (eq (assoc-default 'found parsed) t))
+    (should (string= (assoc-default 'symbol parsed) "let"))
+    (let ((content (assoc-default 'content parsed)))
+      (should (stringp content))
+      (should (string-match-p "let" content))
+      (should (string-match-p "binding" content)))))
 
 (ert-deftest elisp-dev-mcp-test-info-lookup-variable ()
   "Test `elisp-info-lookup-symbol' with a variable."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-info-lookup-symbol" 1 `((symbol . "load-path"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil))
-           (parsed (json-read-from-string text)))
-      (should (eq (assoc-default 'found parsed) t))
-      (should (string= (assoc-default 'symbol parsed) "load-path"))
-      (let ((content (assoc-default 'content parsed)))
-        (should (stringp content))
-        (should (string-match-p "load-path" content))
-        (should (string-match-p "directories" content))))))
+  (let ((parsed
+         (elisp-dev-mcp-test--get-parsed-response
+          "elisp-info-lookup-symbol" '((symbol . "load-path")))))
+    (should (eq (assoc-default 'found parsed) t))
+    (should (string= (assoc-default 'symbol parsed) "load-path"))
+    (let ((content (assoc-default 'content parsed)))
+      (should (stringp content))
+      (should (string-match-p "load-path" content))
+      (should (string-match-p "directories" content)))))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-elpa ()
   "Test that `elisp-read-source-file` can read installed ELPA package files."
