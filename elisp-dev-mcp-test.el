@@ -142,6 +142,16 @@ X is the input value that will be doubled."
     error-pattern
     (mcp-server-lib-ert-check-text-response response t))))
 
+(defun elisp-dev-mcp-test--verify-empty-name (tool-name param-name)
+  "Verify empty name handling for TOOL-NAME with PARAM-NAME."
+  (elisp-dev-mcp-test-with-server
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             tool-name 1 `((,param-name . ""))))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+      (elisp-dev-mcp-test--verify-error-resp
+       resp (format "Empty %s name" param-name)))))
+
 (defun elisp-dev-mcp-test--get-definition-response-data
     (function-name)
   "Get function definition response data for FUNCTION-NAME.
@@ -222,11 +232,8 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
 
 (ert-deftest elisp-dev-mcp-test-describe-empty-string-function ()
   "Test that `describe-function' MCP handler handles empty string properly."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req (elisp-dev-mcp-test--describe-req ""))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
-      (elisp-dev-mcp-test--verify-error-resp
-       resp "Empty function name"))))
+  (elisp-dev-mcp-test--verify-empty-name
+   "elisp-describe-function" 'function))
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-as-function ()
   "Test that `describe-function' MCP handler handles variable names properly."
@@ -614,11 +621,8 @@ D captures remaining arguments."
 (ert-deftest elisp-dev-mcp-test-get-empty-string-function-definition
     ()
   "Test that `elisp-get-function-definition' handles empty string properly."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req (elisp-dev-mcp-test--definition-req ""))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
-      (elisp-dev-mcp-test--verify-error-resp
-       resp "Empty function name"))))
+  (elisp-dev-mcp-test--verify-empty-name
+   "elisp-get-function-definition" 'function))
 
 (ert-deftest elisp-dev-mcp-test-get-variable-as-function-definition ()
   "Test that `elisp-get-function-definition' handles variable names properly."
@@ -871,13 +875,8 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-describe-empty-string-variable ()
   "Test that `describe-variable' MCP handler handles empty string properly."
-  (elisp-dev-mcp-test-with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-describe-variable" 1 `((variable . ""))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
-      (elisp-dev-mcp-test--verify-error-resp
-       resp "Empty variable name"))))
+  (elisp-dev-mcp-test--verify-empty-name
+   "elisp-describe-variable" 'variable))
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-no-docstring ()
   "Test `describe-variable' MCP handler with undocumented variables."
