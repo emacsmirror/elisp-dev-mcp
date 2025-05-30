@@ -1343,7 +1343,7 @@ X and Y are dynamically scoped arguments."
           source
           (concat
            "(defun elisp-dev-mcp-test-bytecode--no-docstring (a b)\n"
-           "  (* a b)")))))))
+           "  (* a b))")))))))
 
 (ert-deftest elisp-dev-mcp-test-get-bytecode-function-empty-docstring
     ()
@@ -1359,7 +1359,7 @@ X and Y are dynamically scoped arguments."
       (concat
        "(defun elisp-dev-mcp-test-bytecode--empty-docstring (n)\n"
        "  \"\"\n"
-       "  (* n 2)")))))
+       "  (* n 2))")))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
