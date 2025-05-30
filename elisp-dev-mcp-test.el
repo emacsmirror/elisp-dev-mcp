@@ -56,7 +56,7 @@ X is the input value that will be doubled."
   #'elisp-dev-mcp-test--with-header-comment
   "This is an alias for elisp-dev-mcp-test--with-header-comment.")
 
-(defmacro elisp-dev-mcp-test-with-server (&rest body)
+(defmacro elisp-dev-mcp-test--with-server (&rest body)
   "Execute BODY with running MCP server and elisp-dev-mcp enabled."
   (declare (indent defun) (debug t))
   `(unwind-protect
@@ -87,7 +87,7 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-test-bytecode.el."
   "Describe FUNCTION-NAME after loading bytecode file.
 Returns the description text."
   (elisp-dev-mcp-test-with-bytecode-file
-    (elisp-dev-mcp-test-with-server
+    (elisp-dev-mcp-test--with-server
       (let* ((req (elisp-dev-mcp-test--describe-req function-name))
              (resp (mcp-server-lib-process-jsonrpc-parsed req)))
         (mcp-server-lib-ert-check-text-response resp nil)))))
@@ -97,7 +97,7 @@ Returns the description text."
   "Get definition data for FUNCTION-NAME after loading bytecode file.
 Returns the parsed JSON response."
   (elisp-dev-mcp-test-with-bytecode-file
-    (elisp-dev-mcp-test-with-server
+    (elisp-dev-mcp-test--with-server
       (elisp-dev-mcp-test--get-definition-response-data
        function-name))))
 
@@ -178,7 +178,7 @@ Returns the parsed JSON response."
 
 (defun elisp-dev-mcp-test--verify-empty-name (tool-name param-name)
   "Verify empty name handling for TOOL-NAME with PARAM-NAME."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              tool-name 1 `((,param-name . ""))))
@@ -188,7 +188,7 @@ Returns the parsed JSON response."
 
 (defun elisp-dev-mcp-test--verify-invalid-type (tool-name param-name)
   "Verify invalid type handling for TOOL-NAME with PARAM-NAME."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              tool-name 1 `((,param-name . 123))))
@@ -249,7 +249,7 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
 (defun elisp-dev-mcp-test--get-parsed-response (tool-name args)
   "Get parsed JSON response for TOOL-NAME with ARGS.
 ARGS should be an alist of parameter names and values."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              tool-name 1 args))
@@ -260,7 +260,7 @@ ARGS should be an alist of parameter names and values."
 (defun elisp-dev-mcp-test--read-source-file (file-path)
   "Read source file at FILE-PATH using elisp-read-source-file tool.
 Returns the file contents as a string."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              "elisp-read-source-file" 1 `((file-path . ,file-path))))
@@ -270,7 +270,7 @@ Returns the file contents as a string."
 (defun elisp-dev-mcp-test--verify-read-source-file-error
     (file-path error-pattern)
   "Verify that reading FILE-PATH produces error matching ERROR-PATTERN."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              "elisp-read-source-file" 1 `((file-path . ,file-path))))
@@ -281,7 +281,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-function ()
   "Test that `describe-function' MCP handler works correctly."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req (elisp-dev-mcp-test--describe-req "defun"))
            (resp (mcp-server-lib-process-jsonrpc-parsed req))
            (text (mcp-server-lib-ert-check-text-response resp nil)))
@@ -289,7 +289,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-nonexistent-function ()
   "Test that `describe-function' MCP handler handles non-existent functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
              "non-existent-function-xyz"))
@@ -309,7 +309,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-variable-as-function ()
   "Test that `describe-function' MCP handler handles variable names properly."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req "user-emacs-directory"))
            (resp (mcp-server-lib-process-jsonrpc-parsed req)))
@@ -318,7 +318,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-macro ()
   "Test that `describe-function' MCP handler works correctly with macros."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req (elisp-dev-mcp-test--describe-req "when"))
            (resp (mcp-server-lib-process-jsonrpc-parsed req))
            (text (mcp-server-lib-ert-check-text-response resp nil)))
@@ -327,7 +327,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-inline-function ()
   "Test that `describe-function' MCP handler works with inline functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test--inline-function"))
@@ -339,7 +339,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-regular-function ()
   "Test that `describe-function' MCP handler works with regular defun."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test--with-header-comment"))
@@ -363,7 +363,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-function-no-docstring ()
   "Test `describe-function' MCP handler with undocumented functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test-no-checkdoc--no-docstring"))
@@ -383,7 +383,7 @@ Returns the file contents as a string."
 
 (ert-deftest elisp-dev-mcp-test-describe-function-empty-docstring ()
   "Test `describe-function' MCP handler with empty docstring functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test-no-checkdoc--empty-docstring"))
@@ -502,7 +502,7 @@ Any tool not found will be nil in the list."
 
 (ert-deftest elisp-dev-mcp-test-get-function-definition ()
   "Test that `elisp-get-function-definition' MCP handler works correctly."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
      "elisp-dev-mcp-test--without-header-comment" 43 46
      "(defun elisp-dev-mcp-test--without-header-comment (value)
@@ -512,7 +512,7 @@ VALUE is multiplied by 2.\"
 
 (ert-deftest elisp-dev-mcp-test-get-nonexistent-function-definition ()
   "Test that `elisp-get-function-definition' handles non-existent functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--definition-req
              "non-existent-function-xyz"))
@@ -528,7 +528,7 @@ VALUE is multiplied by 2.\"
 
 (ert-deftest elisp-dev-mcp-test-get-c-function-definition ()
   "Test that `elisp-get-function-definition' handles C-implemented functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data "car"))
            (is-c-function (assoc-default 'is-c-function parsed-resp))
@@ -545,7 +545,7 @@ VALUE is multiplied by 2.\"
 
 (ert-deftest elisp-dev-mcp-test-get-function-with-header-comment ()
   "Test that `elisp-get-function-definition' includes header comments."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
      "elisp-dev-mcp-test--with-header-comment" 28 38
      ";; This is a header comment that should be included
@@ -562,7 +562,7 @@ Returns the sum of ARG1 and ARG2.\"
 
 (ert-deftest elisp-dev-mcp-test-get-interactively-defined-function ()
   "Test interactively defined functions with get-function-definition."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     ;; Define a function interactively (not from a file)
     (let* ((test-function-name
             "elisp-dev-mcp-test--interactive-function")
@@ -584,7 +584,7 @@ Returns the sum of ARG1 and ARG2.\"
 
 (ert-deftest elisp-dev-mcp-test-get-interactive-function-with-args ()
   "Test interactively defined functions with complex args."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     ;; Define a function interactively with special parameter specifiers
     (let* ((test-function-name
             "elisp-dev-mcp-test--interactive-complex-args")
@@ -622,7 +622,7 @@ D captures remaining arguments."
 
 (ert-deftest elisp-dev-mcp-test-describe-function-alias ()
   "Test that `describe-function' MCP handler works with function aliases."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
              "elisp-dev-mcp-test--aliased-function"))
@@ -642,7 +642,7 @@ D captures remaining arguments."
 
 (ert-deftest elisp-dev-mcp-test-get-function-definition-alias ()
   "Test that `elisp-get-function-definition' works with function aliases."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data
              "elisp-dev-mcp-test--aliased-function"))
@@ -672,7 +672,7 @@ D captures remaining arguments."
 
 (ert-deftest elisp-dev-mcp-test-get-special-form-definition ()
   "Test that `elisp-get-function-definition' handles special forms correctly."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data "if"))
            (is-c-function (assoc-default 'is-c-function parsed-resp))
@@ -695,7 +695,7 @@ D captures remaining arguments."
 
 (ert-deftest elisp-dev-mcp-test-get-variable-as-function-definition ()
   "Test that `elisp-get-function-definition' handles variable names properly."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req (elisp-dev-mcp-test--definition-req "load-path"))
            (resp (mcp-server-lib-process-jsonrpc-parsed req)))
       (elisp-dev-mcp-test--verify-error-resp
@@ -704,7 +704,7 @@ D captures remaining arguments."
 (ert-deftest elisp-dev-mcp-test-get-function-definition-no-docstring
     ()
   "Test `elisp-get-function-definition' with undocumented functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data
              "elisp-dev-mcp-test-no-checkdoc--no-docstring"))
@@ -725,7 +725,7 @@ D captures remaining arguments."
     elisp-dev-mcp-test-get-function-definition-empty-docstring
     ()
   "Test `elisp-get-function-definition' with empty docstring functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data
              "elisp-dev-mcp-test-no-checkdoc--empty-docstring"))
@@ -747,7 +747,7 @@ D captures remaining arguments."
     elisp-dev-mcp-test-get-interactive-function-definition-no-docstring
     ()
   "Test get-function-definition for dynamically defined function w/o docstring."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     ;; Define a function interactively without a docstring
     (let* ((test-function-name
             "elisp-dev-mcp-test--interactive-no-docstring")
@@ -777,7 +777,7 @@ D captures remaining arguments."
     elisp-dev-mcp-test-get-interactive-function-definition-empty-docstring
     ()
   "Test get-function-definition for dynamically defined function w/ empty doc."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     ;; Define a function interactively with an empty docstring
     (let* ((test-function-name
             "elisp-dev-mcp-test--interactive-empty-docstring")
@@ -806,7 +806,7 @@ D captures remaining arguments."
 
 (ert-deftest elisp-dev-mcp-test-describe-dynamic-binding-function ()
   "Test `describe-function' with functions from lexical-binding: nil files."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     ;; Load the dynamic binding test file
     (require 'elisp-dev-mcp-test-dynamic)
 
@@ -836,7 +836,7 @@ D captures remaining arguments."
     elisp-dev-mcp-test-get-dynamic-binding-function-definition
     ()
   "Test 'get-function-definition' with lexical-binding: nil functions."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     ;; Load the dynamic binding test file
     (require 'elisp-dev-mcp-test-dynamic)
 
@@ -874,7 +874,7 @@ Returns the sum of ARG1 and ARG2.\"
 (ert-deftest elisp-dev-mcp-test-describe-interactive-dynamic-function
     ()
   "Test 'describe-function' with interactively defined dynamic function."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((test-function-name
             "elisp-dev-mcp-test--interactive-dynamic-func")
            (sym (intern test-function-name))
@@ -918,7 +918,7 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-describe-nonexistent-variable ()
   "Test that `describe-variable' MCP handler handles non-existent variables."
-  (elisp-dev-mcp-test-with-server
+  (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              "elisp-describe-variable"
@@ -1332,7 +1332,7 @@ X and Y are dynamically scoped arguments."
     ()
   "Test `get-function-definition' with byte-compiled function w/o docstring."
   (elisp-dev-mcp-test-with-bytecode-file
-    (elisp-dev-mcp-test-with-server
+    (elisp-dev-mcp-test--with-server
       (let* ((parsed-resp
               (elisp-dev-mcp-test--get-definition-response-data
                "elisp-dev-mcp-test-bytecode--no-docstring"))
