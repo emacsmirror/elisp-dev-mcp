@@ -67,6 +67,21 @@ X is the input value that will be doubled."
      (elisp-dev-mcp-disable)
      (mcp-server-lib-stop)))
 
+(defmacro elisp-dev-mcp-test-with-bytecode-file (&rest body)
+  "Execute BODY with bytecode test file compiled and loaded.
+Handles compilation, loading, and cleanup of elisp-dev-mcp-test-bytecode.el."
+  (declare (indent defun) (debug t))
+  `(let* ((source-file
+           (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
+          (bytecode-file (byte-compile-dest-file source-file)))
+     (unwind-protect
+         (progn
+           (should (byte-compile-file source-file))
+           (should (load bytecode-file nil t t))
+           ,@body)
+       (when (file-exists-p bytecode-file)
+         (delete-file bytecode-file)))))
+
 ;;; Test variables
 
 (defvar elisp-dev-mcp-test--undocumented-var)
@@ -1352,130 +1367,91 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
-  (let* ((source-file
-          (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
-         (bytecode-file (byte-compile-dest-file source-file)))
-    (unwind-protect
-        (progn
-          (should (byte-compile-file source-file))
-          (should (load bytecode-file nil t t))
+  (elisp-dev-mcp-test-with-bytecode-file
+    (elisp-dev-mcp-test-with-server
+      (let* ((req
+              (elisp-dev-mcp-test--describe-req
+               "elisp-dev-mcp-test-bytecode--with-header"))
+             (resp (mcp-server-lib-process-jsonrpc-parsed req))
+             (text (mcp-server-lib-ert-check-text-response resp nil)))
 
-          (elisp-dev-mcp-test-with-server
-            (let* ((req
-                    (elisp-dev-mcp-test--describe-req
-                     "elisp-dev-mcp-test-bytecode--with-header"))
-                   (resp (mcp-server-lib-process-jsonrpc-parsed req))
-                   (text
-                    (mcp-server-lib-ert-check-text-response
-                     resp nil)))
-
-              (should
-               (string-match-p
-                "elisp-dev-mcp-test-bytecode--with-header" text))
-              (should (string-match-p "byte-compiled" text))
-              (should
-               (string-match-p
-                "A byte-compiled function with header comment" text))
-              (should
-               (string-match-p
-                "elisp-dev-mcp-test-bytecode\\.el" text)))))
-
-      (when (file-exists-p bytecode-file)
-        (delete-file bytecode-file)))))
+        (should
+         (string-match-p
+          "elisp-dev-mcp-test-bytecode--with-header" text))
+        (should (string-match-p "byte-compiled" text))
+        (should
+         (string-match-p
+          "A byte-compiled function with header comment" text))
+        (should
+         (string-match-p "elisp-dev-mcp-test-bytecode\\.el" text))))))
 
 (ert-deftest
     elisp-dev-mcp-test-get-bytecode-function-definition-with-header
     ()
   "Test `get-function-definition' with byte-compiled function with header."
-  (let* ((source-file
-          (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
-         (bytecode-file (byte-compile-dest-file source-file)))
-    (unwind-protect
-        (progn
-          (should (byte-compile-file source-file))
-          (should (load bytecode-file nil t t))
+  (elisp-dev-mcp-test-with-bytecode-file
+    (elisp-dev-mcp-test-with-server
+      (let* ((parsed-resp
+              (elisp-dev-mcp-test--get-definition-response-data
+               "elisp-dev-mcp-test-bytecode--with-header"))
+             (source (assoc-default 'source parsed-resp))
+             (file-path (assoc-default 'file-path parsed-resp))
+             (start-line (assoc-default 'start-line parsed-resp))
+             (end-line (assoc-default 'end-line parsed-resp)))
 
-          (elisp-dev-mcp-test-with-server
-            (let* ((parsed-resp
-                    (elisp-dev-mcp-test--get-definition-response-data
-                     "elisp-dev-mcp-test-bytecode--with-header"))
-                   (source (assoc-default 'source parsed-resp))
-                   (file-path (assoc-default 'file-path parsed-resp))
-                   (start-line
-                    (assoc-default 'start-line parsed-resp))
-                   (end-line (assoc-default 'end-line parsed-resp)))
-
-              (should
-               (string=
-                (file-name-nondirectory file-path)
-                "elisp-dev-mcp-test-bytecode.el"))
-              (should (= start-line 20))
-              (should (= end-line 25))
-              (should (string-match-p ";; Header comment" source))
-              (should
-               (string-match-p ";; This should be preserved" source))
-              (should
-               (string-match-p
-                "defun elisp-dev-mcp-test-bytecode--with-header"
-                source)))))
-
-      (when (file-exists-p bytecode-file)
-        (delete-file bytecode-file)))))
+        (should
+         (string=
+          (file-name-nondirectory file-path)
+          "elisp-dev-mcp-test-bytecode.el"))
+        (should (= start-line 20))
+        (should (= end-line 25))
+        (should
+         (string-match-p
+          ";; Header comment for byte-compiled function" source))
+        (should
+         (string-match-p
+          ";; This should be preserved in the function definition"
+          source))
+        (should
+         (string-match-p
+          "defun elisp-dev-mcp-test-bytecode--with-header"
+          source))))))
 
 (ert-deftest
     elisp-dev-mcp-test-get-bytecode-function-definition-no-docstring
     ()
   "Test `get-function-definition' with byte-compiled function w/o docstring."
-  (let* ((source-file
-          (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
-         (bytecode-file (byte-compile-dest-file source-file)))
-    (unwind-protect
-        (progn
-          (should (byte-compile-file source-file))
-          (should (load bytecode-file nil t t))
+  (elisp-dev-mcp-test-with-bytecode-file
+    (elisp-dev-mcp-test-with-server
+      (let* ((parsed-resp
+              (elisp-dev-mcp-test--get-definition-response-data
+               "elisp-dev-mcp-test-bytecode--no-docstring"))
+             (source (assoc-default 'source parsed-resp)))
 
-          (elisp-dev-mcp-test-with-server
-            (let* ((parsed-resp
-                    (elisp-dev-mcp-test--get-definition-response-data
-                     "elisp-dev-mcp-test-bytecode--no-docstring"))
-                   (source (assoc-default 'source parsed-resp)))
-
-              (should
-               (string=
-                source
-                (concat
-                 "(defun elisp-dev-mcp-test-bytecode--no-docstring "
-                 "(a b)\n  (* a b))"))))))
-
-      (when (file-exists-p bytecode-file)
-        (delete-file bytecode-file)))))
+        (should
+         (string=
+          source
+          (concat
+           "(defun elisp-dev-mcp-test-bytecode--no-docstring (a b)\n"
+           "  (* a b))")))))))
 
 (ert-deftest elisp-dev-mcp-test-get-bytecode-function-empty-docstring
     ()
   "Test `get-function-definition' with byte-compiled empty docstring function."
-  (let* ((source-file
-          (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
-         (bytecode-file (byte-compile-dest-file source-file)))
-    (unwind-protect
-        (progn
-          (should (byte-compile-file source-file))
-          (should (load bytecode-file nil t t))
+  (elisp-dev-mcp-test-with-bytecode-file
+    (elisp-dev-mcp-test-with-server
+      (let* ((parsed-resp
+              (elisp-dev-mcp-test--get-definition-response-data
+               "elisp-dev-mcp-test-bytecode--empty-docstring"))
+             (source (assoc-default 'source parsed-resp)))
 
-          (elisp-dev-mcp-test-with-server
-            (let* ((parsed-resp
-                    (elisp-dev-mcp-test--get-definition-response-data
-                     "elisp-dev-mcp-test-bytecode--empty-docstring"))
-                   (source (assoc-default 'source parsed-resp)))
-
-              (should
-               (string=
-                source
-                (concat
-                 "(defun elisp-dev-mcp-test-bytecode--empty-docstring "
-                 "(n)\n  \"\"\n  (* n 2))"))))))
-
-      (when (file-exists-p bytecode-file)
-        (delete-file bytecode-file)))))
+        (should
+         (string=
+          source
+          (concat
+           "(defun elisp-dev-mcp-test-bytecode--empty-docstring (n)\n"
+           "  \"\"\n"
+           "  (* n 2))")))))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here
