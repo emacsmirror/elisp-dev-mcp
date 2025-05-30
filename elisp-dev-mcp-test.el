@@ -67,7 +67,7 @@ X is the input value that will be doubled."
      (elisp-dev-mcp-disable)
      (mcp-server-lib-stop)))
 
-(defmacro elisp-dev-mcp-test-with-bytecode-file (&rest body)
+(defmacro elisp-dev-mcp-test--with-bytecode-file (&rest body)
   "Execute BODY with bytecode test file compiled and loaded.
 Handles compilation, loading, and cleanup of elisp-dev-mcp-test-bytecode.el."
   (declare (indent defun) (debug t))
@@ -86,7 +86,7 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-test-bytecode.el."
     (function-name)
   "Describe FUNCTION-NAME after loading bytecode file.
 Returns the description text."
-  (elisp-dev-mcp-test-with-bytecode-file
+  (elisp-dev-mcp-test--with-bytecode-file
     (elisp-dev-mcp-test--with-server
       (let* ((req (elisp-dev-mcp-test--describe-req function-name))
              (resp (mcp-server-lib-process-jsonrpc-parsed req)))
@@ -96,7 +96,7 @@ Returns the description text."
     (function-name)
   "Get definition data for FUNCTION-NAME after loading bytecode file.
 Returns the parsed JSON response."
-  (elisp-dev-mcp-test-with-bytecode-file
+  (elisp-dev-mcp-test--with-bytecode-file
     (elisp-dev-mcp-test--with-server
       (elisp-dev-mcp-test--get-definition-response-data
        function-name))))
@@ -1331,7 +1331,7 @@ X and Y are dynamically scoped arguments."
     elisp-dev-mcp-test-get-bytecode-function-definition-no-docstring
     ()
   "Test `get-function-definition' with byte-compiled function w/o docstring."
-  (elisp-dev-mcp-test-with-bytecode-file
+  (elisp-dev-mcp-test--with-bytecode-file
     (elisp-dev-mcp-test--with-server
       (let* ((parsed-resp
               (elisp-dev-mcp-test--get-definition-response-data
