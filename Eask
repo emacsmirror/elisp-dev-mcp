@@ -2,7 +2,7 @@
          "0.1.0"
          "MCP server for agentic Elisp development")
 
-(website-url "https://github.com/laurynas-biveinis/elisp-mcp-dev")
+(website-url "https://github.com/laurynas-biveinis/elisp-dev-mcp")
 (keywords "tools" "development")
 
 (package-file "elisp-dev-mcp.el")

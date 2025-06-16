@@ -6,7 +6,7 @@
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "27.1") (mcp-server-lib "0.1.0"))
 ;; Keywords: tools, development
-;; URL: https://github.com/laurynas-biveinis/elisp-mcp-dev
+;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
 
 ;;; Commentary:
 

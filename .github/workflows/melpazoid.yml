@@ -28,7 +28,7 @@ jobs:
           LOCAL_REPO: ${{ github.workspace }}
           # RECIPE is your recipe as written for MELPA:
           RECIPE: |
-            (elisp-dev-mcp :fetcher github :repo "laurynas-biveinis/elisp-mcp-dev")
+            (elisp-dev-mcp :fetcher github :repo "laurynas-biveinis/elisp-dev-mcp")
           # set this to false (or remove it) if the package isn't on MELPA:
           EXIST_OK: false
         run: echo "$GITHUB_REF" && make -C ~/melpazoid

@@ -1,7 +1,7 @@
 #+TITLE: elisp-dev-mcp: MCP Server for Agentic Elisp Development
 
-[[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml][https://github.com/laurynas-biveinis/elisp-mcp-dev/actions/workflows/elisp-test.yml/badge.svg]]
-[[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/super-linter.yml][https://github.com/laurynas-biveinis/elisp-mcp-dev/actions/workflows/super-linter.yml/badge.svg]]
+[[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml/badge.svg]]
+[[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/super-linter.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/super-linter.yml/badge.svg]]
 
 * Overview
 
