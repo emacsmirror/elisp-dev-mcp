@@ -551,8 +551,7 @@ Returns an alist with lookup results or nil if not found."
               (content . ,content)
               (info-ref . ,(format "(%s)%s" manual node))))))
     ;; If lookup fails, return nil
-    (error
-     nil)))
+    (error nil)))
 
 (defun elisp-dev-mcp--info-lookup-symbol (symbol)
   "Look up SYMBOL in Elisp Info documentation.
