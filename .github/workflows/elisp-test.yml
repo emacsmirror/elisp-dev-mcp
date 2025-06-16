@@ -18,7 +18,8 @@ jobs:
           - "snapshot"
           - "30.1"
           - "29.4"
-          # TODO: Re-add Emacs 28.2 and 27.2 once mcp-server-lib.el is published on MELPA or ELPA
+          - "28.2"
+          - "27.2"
 
     permissions:
       contents: read
@@ -39,12 +40,12 @@ jobs:
           emacs -Q --batch \
                 --eval "(require 'package)" \
                 --eval "(add-to-list 'package-archives '(\"melpa-stable\" . \"https://stable.melpa.org/packages/\") t)" \
+                --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
                 --eval "(package-initialize)" \
                 --eval "(package-refresh-contents)" \
                 --eval "(package-install 'elisp-lint)" \
                 --eval "(package-install 'package-lint)" \
-                --eval "(require 'package-vc)" \
-                --eval "(package-vc-install '(mcp-server-lib :url \"https://github.com/laurynas-biveinis/mcp-server-lib.el\"))"
+                --eval "(package-install 'mcp-server-lib)"
 
       - name: elisp-lint
         run: |

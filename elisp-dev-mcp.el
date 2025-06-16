@@ -4,7 +4,7 @@
 
 ;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "28.1"))
+;; Package-Requires: ((emacs "27.1") (mcp-server-lib "0.1.0"))
 ;; Keywords: tools, development
 ;; URL: https://github.com/laurynas-biveinis/elisp-mcp-dev
 
@@ -551,7 +551,8 @@ Returns an alist with lookup results or nil if not found."
               (content . ,content)
               (info-ref . ,(format "(%s)%s" manual node))))))
     ;; If lookup fails, return nil
-    (error nil)))
+    (error
+     nil)))
 
 (defun elisp-dev-mcp--info-lookup-symbol (symbol)
   "Look up SYMBOL in Elisp Info documentation.

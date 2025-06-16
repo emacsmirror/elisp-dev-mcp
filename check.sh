@@ -47,8 +47,8 @@ readonly SHELL_FILES=(check.sh)
 readonly EMACS="emacs -Q --batch"
 
 # Elisp packages in ELPA
-readonly MCP_SERVER_LIB="mcp-server-lib"
-readonly ELISP_AUTOFMT="elisp-autofmt-20250421.1112"
+readonly MCP_SERVER_LIB="mcp-server-lib-20250613.1413"
+readonly ELISP_AUTOFMT="elisp-autofmt-20250611.2328"
 readonly ELISP_LINT="elisp-lint-20220419.252"
 readonly PACKAGE_LINT="package-lint-0.26"
 readonly DASH="dash-20250312.1307"
