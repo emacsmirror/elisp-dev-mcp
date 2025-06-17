@@ -4,14 +4,13 @@
 
 ;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.1"))
 ;; Keywords: tools, development
 ;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
 
 ;;; Commentary:
 
 ;; Test fixture functions for dynamic binding context testing.
-;; This file intentionally uses lexical-binding: nil to create
+;; This file intentionally uses dynamic binding to create
 ;; functions with dynamic binding behavior for testing purposes.
 
 ;;; Code:
@@ -29,5 +28,9 @@ Returns the sum of ARG1 and ARG2."
   (+ arg1 arg2))
 
 (provide 'elisp-dev-mcp-test-dynamic)
+
+;; Local Variables:
+;; package-lint-main-file: "elisp-dev-mcp.el"
+;; End:
 
 ;;; elisp-dev-mcp-test-dynamic.el ends here

@@ -4,7 +4,6 @@
 
 ;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.1"))
 ;; Keywords: tools, development
 ;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
 
@@ -35,6 +34,7 @@ X and Y are numbers to be added."
 
 ;; Local Variables:
 ;; elisp-lint-ignored-validators: ("checkdoc")
+;; package-lint-main-file: "elisp-dev-mcp.el"
 ;; End:
 
 ;;; elisp-dev-mcp-test-bytecode.el ends here

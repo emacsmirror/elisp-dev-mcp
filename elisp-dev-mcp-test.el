@@ -854,8 +854,8 @@ D captures remaining arguments."
        (string=
         (file-name-nondirectory file-path)
         "elisp-dev-mcp-test-dynamic.el"))
-      (should (= start-line 19))
-      (should (= end-line 29))
+      (should (= start-line 18))
+      (should (= end-line 28))
       (should
        (string=
         source
@@ -1314,8 +1314,8 @@ X and Y are dynamically scoped arguments."
      (string=
       (file-name-nondirectory file-path)
       "elisp-dev-mcp-test-bytecode.el"))
-    (should (= start-line 20))
-    (should (= end-line 25))
+    (should (= start-line 19))
+    (should (= end-line 24))
     (should
      (string-match-p
       ";; Header comment for byte-compiled function" source))

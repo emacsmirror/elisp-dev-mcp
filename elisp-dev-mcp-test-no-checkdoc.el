@@ -4,7 +4,6 @@
 
 ;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.1"))
 ;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
 
 ;;; Commentary:
@@ -29,6 +28,7 @@
 
 ;; Local Variables:
 ;; elisp-lint-ignored-validators: ("checkdoc")
+;; package-lint-main-file: "elisp-dev-mcp.el"
 ;; End:
 
 ;;; elisp-dev-mcp-test-no-checkdoc.el ends here
