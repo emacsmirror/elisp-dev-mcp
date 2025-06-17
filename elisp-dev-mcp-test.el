@@ -2,6 +2,19 @@
 
 ;; Copyright (C) 2025 Laurynas Biveinis
 
+;; This file is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+
+;; This file is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "24.1"))
@@ -504,7 +517,7 @@ Any tool not found will be nil in the list."
   "Test that `elisp-get-function-definition' MCP handler works correctly."
   (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--without-header-comment" 43 46
+     "elisp-dev-mcp-test--without-header-comment" 56 59
      "(defun elisp-dev-mcp-test--without-header-comment (value)
   \"Simple function without a header comment.
 VALUE is multiplied by 2.\"
@@ -547,7 +560,7 @@ VALUE is multiplied by 2.\"
   "Test that `elisp-get-function-definition' includes header comments."
   (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--with-header-comment" 28 38
+     "elisp-dev-mcp-test--with-header-comment" 41 51
      ";; This is a header comment that should be included
 ;; when extracting the function definition
 (defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
@@ -854,8 +867,8 @@ D captures remaining arguments."
        (string=
         (file-name-nondirectory file-path)
         "elisp-dev-mcp-test-dynamic.el"))
-      (should (= start-line 18))
-      (should (= end-line 28))
+      (should (= start-line 31))
+      (should (= end-line 41))
       (should
        (string=
         source
@@ -1314,8 +1327,8 @@ X and Y are dynamically scoped arguments."
      (string=
       (file-name-nondirectory file-path)
       "elisp-dev-mcp-test-bytecode.el"))
-    (should (= start-line 19))
-    (should (= end-line 24))
+    (should (= start-line 32))
+    (should (= end-line 37))
     (should
      (string-match-p
       ";; Header comment for byte-compiled function" source))
