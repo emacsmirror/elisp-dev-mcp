@@ -1,4 +1,4 @@
-;;; elisp-dev-mcp-test-no-checkdoc.el --- Test fixtures exempt from checkdoc -*- lexical-binding: t -*-
+;;; elisp-dev-mcp-dynamic-test.el --- Test fixtures for dynamic binding -*- lexical-binding: nil -*-
 
 ;; Copyright (C) 2025 Laurynas Biveinis
 
@@ -17,31 +17,33 @@
 
 ;; Author: Laurynas Biveinis
 ;; Version: 0.1.0
+;; Keywords: tools, development
 ;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
 
 ;;; Commentary:
 
-;; Test fixture functions that are exempt from checkdoc validation.
-;; This file contains functions that intentionally violate documentation
-;; requirements for testing purposes.
+;; Test fixture functions for dynamic binding context testing.
+;; This file intentionally uses dynamic binding to create
+;; functions with dynamic binding behavior for testing purposes.
 
 ;;; Code:
 
-(defun elisp-dev-mcp-test-no-checkdoc--no-docstring (x y)
-  (+ x y))
+;; This is a header comment that should be included
+;; when extracting the function definition
+(defun elisp-dev-mcp-dynamic-test--with-header-comment (arg1 arg2)
+  "Sample function with a header comment in dynamic binding context.
+Demonstrates comment extraction capabilities.
 
-(defun elisp-dev-mcp-test-no-checkdoc--empty-docstring (x y)
-  ""
-  (+ x y))
+ARG1 is the first argument.
+ARG2 is the second argument.
 
-(defvar elisp-dev-mcp-test-no-checkdoc--empty-docstring-var nil
-  "")
+Returns the sum of ARG1 and ARG2."
+  (+ arg1 arg2))
 
-(provide 'elisp-dev-mcp-test-no-checkdoc)
+(provide 'elisp-dev-mcp-dynamic-test)
 
 ;; Local Variables:
-;; elisp-lint-ignored-validators: ("checkdoc")
 ;; package-lint-main-file: "elisp-dev-mcp.el"
 ;; End:
 
-;;; elisp-dev-mcp-test-no-checkdoc.el ends here
+;;; elisp-dev-mcp-dynamic-test.el ends here

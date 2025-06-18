@@ -1,4 +1,4 @@
-;;; elisp-dev-mcp-test-bytecode.el --- Bytecode test functions -*- lexical-binding: t -*-
+;;; elisp-dev-mcp-bytecode-test.el --- Bytecode test functions -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2025 Laurynas Biveinis
 
@@ -31,23 +31,23 @@
 
 ;; Header comment for byte-compiled function
 ;; This should be preserved in the function definition
-(defun elisp-dev-mcp-test-bytecode--with-header (x y)
+(defun elisp-dev-mcp-bytecode-test--with-header (x y)
   "A byte-compiled function with header comment.
 X and Y are numbers to be added."
   (+ x y))
 
-(defun elisp-dev-mcp-test-bytecode--no-docstring (a b)
+(defun elisp-dev-mcp-bytecode-test--no-docstring (a b)
   (* a b))
 
-(defun elisp-dev-mcp-test-bytecode--empty-docstring (n)
+(defun elisp-dev-mcp-bytecode-test--empty-docstring (n)
   ""
   (* n 2))
 
-(provide 'elisp-dev-mcp-test-bytecode)
+(provide 'elisp-dev-mcp-bytecode-test)
 
 ;; Local Variables:
 ;; elisp-lint-ignored-validators: ("checkdoc")
 ;; package-lint-main-file: "elisp-dev-mcp.el"
 ;; End:
 
-;;; elisp-dev-mcp-test-bytecode.el ends here
+;;; elisp-dev-mcp-bytecode-test.el ends here

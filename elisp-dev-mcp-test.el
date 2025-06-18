@@ -33,7 +33,7 @@
 (require 'mcp-server-lib-commands)
 (require 'mcp-server-lib-ert)
 (require 'elisp-dev-mcp)
-(require 'elisp-dev-mcp-test-no-checkdoc)
+(require 'elisp-dev-mcp-no-checkdoc-test)
 
 ;;; Test functions used for function definition retrieval tests. Should be the
 ;;; first code in the file to keep the test line numbers stable.
@@ -82,10 +82,10 @@ X is the input value that will be doubled."
 
 (defmacro elisp-dev-mcp-test--with-bytecode-file (&rest body)
   "Execute BODY with bytecode test file compiled and loaded.
-Handles compilation, loading, and cleanup of elisp-dev-mcp-test-bytecode.el."
+Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
   (declare (indent defun) (debug t))
   `(let* ((source-file
-           (expand-file-name "elisp-dev-mcp-test-bytecode.el"))
+           (expand-file-name "elisp-dev-mcp-bytecode-test.el"))
           (bytecode-file (byte-compile-dest-file source-file)))
      (unwind-protect
          (progn
@@ -379,18 +379,18 @@ Returns the file contents as a string."
   (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-test-no-checkdoc--no-docstring"))
+             "elisp-dev-mcp-no-checkdoc-test--no-docstring"))
            (resp (mcp-server-lib-process-jsonrpc-parsed req))
            (text (mcp-server-lib-ert-check-text-response resp nil)))
       ;; Should contain the function name
       (should
        (string-match-p
-        "elisp-dev-mcp-test-no-checkdoc--no-docstring" text))
+        "elisp-dev-mcp-no-checkdoc-test--no-docstring" text))
       (elisp-dev-mcp-test--check-closure-text text)
       ;; Should show argument list (uppercase) in the signature
       (should
        (string-match-p
-        "elisp-dev-mcp-test-no-checkdoc--no-docstring X Y)" text))
+        "elisp-dev-mcp-no-checkdoc-test--no-docstring X Y)" text))
       ;; Should indicate lack of documentation
       (should (string-match-p "Not documented" text)))))
 
@@ -399,25 +399,25 @@ Returns the file contents as a string."
   (elisp-dev-mcp-test--with-server
     (let* ((req
             (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-test-no-checkdoc--empty-docstring"))
+             "elisp-dev-mcp-no-checkdoc-test--empty-docstring"))
            (resp (mcp-server-lib-process-jsonrpc-parsed req))
            (text (mcp-server-lib-ert-check-text-response resp nil)))
       ;; Should contain the function name
       (should
        (string-match-p
-        "elisp-dev-mcp-test-no-checkdoc--empty-docstring" text))
+        "elisp-dev-mcp-no-checkdoc-test--empty-docstring" text))
       (elisp-dev-mcp-test--check-closure-text text)
       ;; Should show argument list (uppercase) in the signature
       (should
        (string-match-p
-        "elisp-dev-mcp-test-no-checkdoc--empty-docstring X Y)" text))
+        "elisp-dev-mcp-no-checkdoc-test--empty-docstring X Y)" text))
       ;; Should show it's in the test file
       (should
-       (string-match-p "elisp-dev-mcp-test-no-checkdoc\\.el" text))
+       (string-match-p "elisp-dev-mcp-no-checkdoc-test\\.el" text))
       ;; Should show the function signature with arguments
       (should
        (string-match-p
-        "elisp-dev-mcp-test-no-checkdoc--empty-docstring X Y)"
+        "elisp-dev-mcp-no-checkdoc-test--empty-docstring X Y)"
         text)))))
 
 (defun elisp-dev-mcp-test--find-tools-in-tools-list ()
@@ -720,18 +720,18 @@ D captures remaining arguments."
   (elisp-dev-mcp-test--with-server
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data
-             "elisp-dev-mcp-test-no-checkdoc--no-docstring"))
+             "elisp-dev-mcp-no-checkdoc-test--no-docstring"))
            (source (assoc-default 'source parsed-resp))
            (file-path (assoc-default 'file-path parsed-resp)))
 
       (should
        (string=
         (file-name-nondirectory file-path)
-        "elisp-dev-mcp-test-no-checkdoc.el"))
+        "elisp-dev-mcp-no-checkdoc-test.el"))
       (should
        (string=
         source
-        "(defun elisp-dev-mcp-test-no-checkdoc--no-docstring (x y)
+        "(defun elisp-dev-mcp-no-checkdoc-test--no-docstring (x y)
   (+ x y))")))))
 
 (ert-deftest
@@ -741,18 +741,18 @@ D captures remaining arguments."
   (elisp-dev-mcp-test--with-server
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data
-             "elisp-dev-mcp-test-no-checkdoc--empty-docstring"))
+             "elisp-dev-mcp-no-checkdoc-test--empty-docstring"))
            (source (assoc-default 'source parsed-resp))
            (file-path (assoc-default 'file-path parsed-resp)))
 
       (should
        (string=
         (file-name-nondirectory file-path)
-        "elisp-dev-mcp-test-no-checkdoc.el"))
+        "elisp-dev-mcp-no-checkdoc-test.el"))
       (should
        (string=
         source
-        "(defun elisp-dev-mcp-test-no-checkdoc--empty-docstring (x y)
+        "(defun elisp-dev-mcp-no-checkdoc-test--empty-docstring (x y)
   \"\"
   (+ x y))")))))
 
@@ -821,21 +821,21 @@ D captures remaining arguments."
   "Test `describe-function' with functions from lexical-binding: nil files."
   (elisp-dev-mcp-test--with-server
     ;; Load the dynamic binding test file
-    (require 'elisp-dev-mcp-test-dynamic)
+    (require 'elisp-dev-mcp-dynamic-test)
 
     ;; Test describe-function with dynamic binding function.
     (let* ((req
             (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-test-dynamic--with-header-comment"))
+             "elisp-dev-mcp-dynamic-test--with-header-comment"))
            (resp (mcp-server-lib-process-jsonrpc-parsed req))
            (text (mcp-server-lib-ert-check-text-response resp nil)))
 
       ;; Should contain the function name
       (should
        (string-match-p
-        "elisp-dev-mcp-test-dynamic--with-header-comment" text))
+        "elisp-dev-mcp-dynamic-test--with-header-comment" text))
       ;; Should show it's in the dynamic binding test file
-      (should (string-match-p "elisp-dev-mcp-test-dynamic\\.el" text))
+      (should (string-match-p "elisp-dev-mcp-dynamic-test\\.el" text))
       ;; Should show as "Lisp function" not "Lisp closure"
       (elisp-dev-mcp-test--check-dynamic-text text)
       (should-not (string-match-p "closure" text))
@@ -851,12 +851,12 @@ D captures remaining arguments."
   "Test 'get-function-definition' with lexical-binding: nil functions."
   (elisp-dev-mcp-test--with-server
     ;; Load the dynamic binding test file
-    (require 'elisp-dev-mcp-test-dynamic)
+    (require 'elisp-dev-mcp-dynamic-test)
 
     ;; Test get-function-definition with dynamic binding function.
     (let* ((parsed-resp
             (elisp-dev-mcp-test--get-definition-response-data
-             "elisp-dev-mcp-test-dynamic--with-header-comment"))
+             "elisp-dev-mcp-dynamic-test--with-header-comment"))
            (source (assoc-default 'source parsed-resp))
            (file-path (assoc-default 'file-path parsed-resp))
            (start-line (assoc-default 'start-line parsed-resp))
@@ -866,7 +866,7 @@ D captures remaining arguments."
       (should
        (string=
         (file-name-nondirectory file-path)
-        "elisp-dev-mcp-test-dynamic.el"))
+        "elisp-dev-mcp-dynamic-test.el"))
       (should (= start-line 31))
       (should (= end-line 41))
       (should
@@ -874,7 +874,7 @@ D captures remaining arguments."
         source
         ";; This is a header comment that should be included
 ;; when extracting the function definition
-(defun elisp-dev-mcp-test-dynamic--with-header-comment (arg1 arg2)
+(defun elisp-dev-mcp-dynamic-test--with-header-comment (arg1 arg2)
   \"Sample function with a header comment in dynamic binding context.
 Demonstrates comment extraction capabilities.
 
@@ -979,12 +979,12 @@ X and Y are dynamically scoped arguments."
          "elisp-describe-variable"
          '((variable
             .
-            "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var")))))
+            "elisp-dev-mcp-no-checkdoc-test--empty-docstring-var")))))
     ;; Check the response
     (should
      (string=
       (assoc-default 'name parsed)
-      "elisp-dev-mcp-test-no-checkdoc--empty-docstring-var"))
+      "elisp-dev-mcp-no-checkdoc-test--empty-docstring-var"))
     (should (eq (assoc-default 'bound parsed) t))
     (should (string= (assoc-default 'value-type parsed) "symbol"))
     ;; Empty docstring should be returned as empty string
@@ -1301,15 +1301,15 @@ X and Y are dynamically scoped arguments."
   "Test `describe-function' with byte-compiled functions."
   (let ((text
          (elisp-dev-mcp-test--with-bytecode-describe-function
-          "elisp-dev-mcp-test-bytecode--with-header")))
+          "elisp-dev-mcp-bytecode-test--with-header")))
     (should
-     (string-match-p "elisp-dev-mcp-test-bytecode--with-header" text))
+     (string-match-p "elisp-dev-mcp-bytecode-test--with-header" text))
     (should (string-match-p "byte-compiled" text))
     (should
      (string-match-p
       "A byte-compiled function with header comment" text))
     (should
-     (string-match-p "elisp-dev-mcp-test-bytecode\\.el" text))))
+     (string-match-p "elisp-dev-mcp-bytecode-test\\.el" text))))
 
 (ert-deftest
     elisp-dev-mcp-test-get-bytecode-function-definition-with-header
@@ -1317,7 +1317,7 @@ X and Y are dynamically scoped arguments."
   "Test `get-function-definition' with byte-compiled function with header."
   (let* ((parsed-resp
           (elisp-dev-mcp-test--with-bytecode-get-definition
-           "elisp-dev-mcp-test-bytecode--with-header"))
+           "elisp-dev-mcp-bytecode-test--with-header"))
          (source (assoc-default 'source parsed-resp))
          (file-path (assoc-default 'file-path parsed-resp))
          (start-line (assoc-default 'start-line parsed-resp))
@@ -1326,7 +1326,7 @@ X and Y are dynamically scoped arguments."
     (should
      (string=
       (file-name-nondirectory file-path)
-      "elisp-dev-mcp-test-bytecode.el"))
+      "elisp-dev-mcp-bytecode-test.el"))
     (should (= start-line 32))
     (should (= end-line 37))
     (should
@@ -1338,7 +1338,7 @@ X and Y are dynamically scoped arguments."
       source))
     (should
      (string-match-p
-      "defun elisp-dev-mcp-test-bytecode--with-header" source))))
+      "defun elisp-dev-mcp-bytecode-test--with-header" source))))
 
 (ert-deftest
     elisp-dev-mcp-test-get-bytecode-function-definition-no-docstring
@@ -1348,14 +1348,14 @@ X and Y are dynamically scoped arguments."
     (elisp-dev-mcp-test--with-server
       (let* ((parsed-resp
               (elisp-dev-mcp-test--get-definition-response-data
-               "elisp-dev-mcp-test-bytecode--no-docstring"))
+               "elisp-dev-mcp-bytecode-test--no-docstring"))
              (source (assoc-default 'source parsed-resp)))
 
         (should
          (string=
           source
           (concat
-           "(defun elisp-dev-mcp-test-bytecode--no-docstring (a b)\n"
+           "(defun elisp-dev-mcp-bytecode-test--no-docstring (a b)\n"
            "  (* a b))")))))))
 
 (ert-deftest elisp-dev-mcp-test-get-bytecode-function-empty-docstring
@@ -1363,14 +1363,14 @@ X and Y are dynamically scoped arguments."
   "Test `get-function-definition' with byte-compiled empty docstring function."
   (let* ((parsed-resp
           (elisp-dev-mcp-test--with-bytecode-get-definition
-           "elisp-dev-mcp-test-bytecode--empty-docstring"))
+           "elisp-dev-mcp-bytecode-test--empty-docstring"))
          (source (assoc-default 'source parsed-resp)))
 
     (should
      (string=
       source
       (concat
-       "(defun elisp-dev-mcp-test-bytecode--empty-docstring (n)\n"
+       "(defun elisp-dev-mcp-bytecode-test--empty-docstring (n)\n"
        "  \"\"\n"
        "  (* n 2))")))))
 
