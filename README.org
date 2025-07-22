@@ -2,6 +2,7 @@
 
 [[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/elisp-test.yml/badge.svg]]
 [[https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/super-linter.yml][https://github.com/laurynas-biveinis/elisp-dev-mcp/actions/workflows/super-linter.yml/badge.svg]]
+[[https://melpa.org/#/elisp-dev-mcp][https://melpa.org/packages/elisp-dev-mcp-badge.svg]]
 
 * Overview
 
