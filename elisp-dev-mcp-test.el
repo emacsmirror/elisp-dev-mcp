@@ -1279,11 +1279,11 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-not-found ()
   "Test that `elisp-read-source-file` handles missing files gracefully."
-  ;; Test non-existent file in a valid directory.
-  (let* ((elpa-dir
-          (file-name-directory (locate-library "mcp-server-lib")))
+  ;; Test non-existent file in a valid package directory.
+  (let* ((test-package-dir
+          (expand-file-name "test-package-1.0/" package-user-dir))
          (non-existent-path
-          (expand-file-name "non-existent-file.el" elpa-dir))
+          (expand-file-name "non-existent-file.el" test-package-dir))
          (error-pattern "File not found: .* (tried .el and .el.gz)"))
     (elisp-dev-mcp-test--verify-read-source-file-error
      non-existent-path error-pattern)))

@@ -1,0 +1,31 @@
+elisp-dev-mcp NEWS -- history of user-visible changes.
+
+Copyright (C) 2024-2025 Laurynas Biveinis
+
+This file is part of elisp-dev-mcp.
+
+* elisp-dev-mcp 1.0.1 (unreleased)
+
+** Bug fixes
+
+*** elisp-read-source-file now uses standard package variables
+The tool now checks ~package-user-dir~ and ~package-directory-list~ instead of
+hardcoding ~/elpa/~ paths. This improves compatibility with different Emacs
+configurations and package managers like Eask.
+
+* elisp-dev-mcp 1.0.0 (2025-07-22)
+
+** Initial release
+First stable release with complete MCP server implementation for Elisp
+development tools.
+
+** Features
+- elisp-describe-function: Get documentation for Emacs Lisp functions
+- elisp-get-function-definition: Retrieve function source code
+- elisp-describe-variable: Get information about Elisp variables
+- elisp-info-lookup-symbol: Look up symbols in Info documentation
+- elisp-read-source-file: Read Elisp source files from allowed locations
+
+Local variables:
+mode: org
+end:
