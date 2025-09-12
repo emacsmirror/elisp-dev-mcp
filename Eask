@@ -1,5 +1,5 @@
 (package "elisp-dev-mcp"
-         "1.0.0"
+         "1.0.1"
          "MCP server for agentic Elisp development")
 
 (website-url "https://github.com/laurynas-biveinis/elisp-dev-mcp")
@@ -10,7 +10,7 @@
 (source "melpa")
 
 (depends-on "emacs" "27.1")
-(depends-on "mcp-server-lib" "0.1.0")
+(depends-on "mcp-server-lib" "0.2.0")
 
 (setq network-security-level 'low)
 
