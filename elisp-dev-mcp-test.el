@@ -101,9 +101,8 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
 Returns the description text."
   (elisp-dev-mcp-test--with-bytecode-file
     (elisp-dev-mcp-test--with-server
-      (let* ((req (elisp-dev-mcp-test--describe-req function-name))
-             (resp (mcp-server-lib-process-jsonrpc-parsed req)))
-        (mcp-server-lib-ert-check-text-response resp nil)))))
+      (mcp-server-lib-ert-call-tool
+       "elisp-describe-function" `((function . ,function-name))))))
 
 (defun elisp-dev-mcp-test--with-bytecode-get-definition
     (function-name)
@@ -168,18 +167,6 @@ Returns the parsed JSON response."
     ;; Older versions preserve empty docstrings
     (should (string-match-p "\"\"" source))))
 
-;;; Helpers to create tool call requests
-
-(defun elisp-dev-mcp-test--describe-req (function-name)
-  "Create a request to call `elisp-describe-function` with FUNCTION-NAME."
-  (mcp-server-lib-create-tools-call-request
-   "elisp-describe-function" 1 `((function . ,function-name))))
-
-(defun elisp-dev-mcp-test--definition-req (function-name)
-  "Create a request to call `elisp-get-function-definition` with FUNCTION-NAME."
-  (mcp-server-lib-create-tools-call-request
-   "elisp-get-function-definition" 1 `((function . ,function-name))))
-
 ;;; Helpers to analyze response JSON
 
 (defun elisp-dev-mcp-test--verify-error-resp (response error-pattern)
@@ -213,9 +200,9 @@ Returns the parsed JSON response."
     (function-name)
   "Get function definition response data for FUNCTION-NAME.
 Returns the parsed JSON response object."
-  (let* ((req (elisp-dev-mcp-test--definition-req function-name))
-         (resp (mcp-server-lib-process-jsonrpc-parsed req))
-         (text (mcp-server-lib-ert-check-text-response resp nil)))
+  (let ((text (mcp-server-lib-ert-call-tool
+               "elisp-get-function-definition"
+               `((function . ,function-name)))))
     (json-read-from-string text)))
 
 (defun elisp-dev-mcp-test--verify-definition-in-test-file
@@ -263,22 +250,15 @@ EXPECTED-PATTERNS is a list of regex patterns that should match in the source."
   "Get parsed JSON response for TOOL-NAME with ARGS.
 ARGS should be an alist of parameter names and values."
   (elisp-dev-mcp-test--with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             tool-name 1 args))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool tool-name args)))
       (json-read-from-string text))))
 
 (defun elisp-dev-mcp-test--read-source-file (file-path)
   "Read source file at FILE-PATH using elisp-read-source-file tool.
 Returns the file contents as a string."
   (elisp-dev-mcp-test--with-server
-    (let* ((req
-            (mcp-server-lib-create-tools-call-request
-             "elisp-read-source-file" 1 `((file-path . ,file-path))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
-      (mcp-server-lib-ert-check-text-response resp nil))))
+    (mcp-server-lib-ert-call-tool
+     "elisp-read-source-file" `((file-path . ,file-path)))))
 
 (defun elisp-dev-mcp-test--verify-read-source-file-error
     (file-path error-pattern)
@@ -295,17 +275,17 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-function ()
   "Test that `describe-function' MCP handler works correctly."
   (elisp-dev-mcp-test--with-server
-    (let* ((req (elisp-dev-mcp-test--describe-req "defun"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function" `((function . "defun")))))
       (should (string-match-p "defun" text)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-nonexistent-function ()
   "Test that `describe-function' MCP handler handles non-existent functions."
   (elisp-dev-mcp-test--with-server
     (let* ((req
-            (elisp-dev-mcp-test--describe-req
-             "non-existent-function-xyz"))
+            (mcp-server-lib-create-tools-call-request
+             "elisp-describe-function" 1
+             `((function . "non-existent-function-xyz"))))
            (resp (mcp-server-lib-process-jsonrpc-parsed req)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function non-existent-function-xyz is void"))))
@@ -324,7 +304,9 @@ Returns the file contents as a string."
   "Test that `describe-function' MCP handler handles variable names properly."
   (elisp-dev-mcp-test--with-server
     (let* ((req
-            (elisp-dev-mcp-test--describe-req "user-emacs-directory"))
+            (mcp-server-lib-create-tools-call-request
+             "elisp-describe-function" 1
+             `((function . "user-emacs-directory"))))
            (resp (mcp-server-lib-process-jsonrpc-parsed req)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function user-emacs-directory is void"))))
@@ -332,20 +314,17 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-macro ()
   "Test that `describe-function' MCP handler works correctly with macros."
   (elisp-dev-mcp-test--with-server
-    (let* ((req (elisp-dev-mcp-test--describe-req "when"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function" `((function . "when")))))
       (should (string-match-p "when" text))
       (should (string-match-p "macro" text)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-inline-function ()
   "Test that `describe-function' MCP handler works with inline functions."
   (elisp-dev-mcp-test--with-server
-    (let* ((req
-            (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-test--inline-function"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function"
+                 `((function . "elisp-dev-mcp-test--inline-function")))))
       (should
        (string-match-p "elisp-dev-mcp-test--inline-function" text))
       (should (string-match-p "inline" text)))))
@@ -353,11 +332,9 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-regular-function ()
   "Test that `describe-function' MCP handler works with regular defun."
   (elisp-dev-mcp-test--with-server
-    (let* ((req
-            (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-test--with-header-comment"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function"
+                 `((function . "elisp-dev-mcp-test--with-header-comment")))))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -377,11 +354,9 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-function-no-docstring ()
   "Test `describe-function' MCP handler with undocumented functions."
   (elisp-dev-mcp-test--with-server
-    (let* ((req
-            (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-no-checkdoc-test--no-docstring"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function"
+                 `((function . "elisp-dev-mcp-no-checkdoc-test--no-docstring")))))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -397,11 +372,9 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-function-empty-docstring ()
   "Test `describe-function' MCP handler with empty docstring functions."
   (elisp-dev-mcp-test--with-server
-    (let* ((req
-            (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-no-checkdoc-test--empty-docstring"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function"
+                 `((function . "elisp-dev-mcp-no-checkdoc-test--empty-docstring")))))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -527,8 +500,9 @@ VALUE is multiplied by 2.\"
   "Test that `elisp-get-function-definition' handles non-existent functions."
   (elisp-dev-mcp-test--with-server
     (let* ((req
-            (elisp-dev-mcp-test--definition-req
-             "non-existent-function-xyz"))
+            (mcp-server-lib-create-tools-call-request
+             "elisp-get-function-definition" 1
+             `((function . "non-existent-function-xyz"))))
            (resp (mcp-server-lib-process-jsonrpc-parsed req)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function non-existent-function-xyz is not found"))))
@@ -636,11 +610,9 @@ D captures remaining arguments."
 (ert-deftest elisp-dev-mcp-test-describe-function-alias ()
   "Test that `describe-function' MCP handler works with function aliases."
   (elisp-dev-mcp-test--with-server
-    (let* ((req
-            (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-test--aliased-function"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function"
+                 `((function . "elisp-dev-mcp-test--aliased-function")))))
 
       ;; Should indicate it's an alias
       (should (string-match-p "alias" text))
@@ -709,7 +681,9 @@ D captures remaining arguments."
 (ert-deftest elisp-dev-mcp-test-get-variable-as-function-definition ()
   "Test that `elisp-get-function-definition' handles variable names properly."
   (elisp-dev-mcp-test--with-server
-    (let* ((req (elisp-dev-mcp-test--definition-req "load-path"))
+    (let* ((req (mcp-server-lib-create-tools-call-request
+                 "elisp-get-function-definition" 1
+                 `((function . "load-path"))))
            (resp (mcp-server-lib-process-jsonrpc-parsed req)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function load-path is not found"))))
@@ -824,11 +798,9 @@ D captures remaining arguments."
     (require 'elisp-dev-mcp-dynamic-test)
 
     ;; Test describe-function with dynamic binding function.
-    (let* ((req
-            (elisp-dev-mcp-test--describe-req
-             "elisp-dev-mcp-dynamic-test--with-header-comment"))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req))
-           (text (mcp-server-lib-ert-check-text-response resp nil)))
+    (let ((text (mcp-server-lib-ert-call-tool
+                 "elisp-describe-function"
+                 `((function . "elisp-dev-mcp-dynamic-test--with-header-comment")))))
 
       ;; Should contain the function name
       (should
@@ -901,13 +873,9 @@ X and Y are dynamically scoped arguments."
                        (* z 2)))
                   nil)
 
-            (let* ((req
-                    (elisp-dev-mcp-test--describe-req
-                     test-function-name))
-                   (resp (mcp-server-lib-process-jsonrpc-parsed req))
-                   (text
-                    (mcp-server-lib-ert-check-text-response
-                     resp nil)))
+            (let ((text (mcp-server-lib-ert-call-tool
+                         "elisp-describe-function"
+                         `((function . ,test-function-name)))))
               (should (string-match-p test-function-name text))
               (elisp-dev-mcp-test--check-dynamic-text text)
               (should
