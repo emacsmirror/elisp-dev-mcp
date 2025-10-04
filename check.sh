@@ -37,6 +37,9 @@
 # - GitHub Actions / YAML:
 #   - Check GitHub workflows with actionlint
 #   - Check YAML formatting with prettier
+# - JavaScript/TypeScript (Biome):
+#   - Check formatting with Biome
+#   - Lint with Biome
 
 set -eu -o pipefail
 
@@ -204,6 +207,24 @@ if prettier --log-level warn --check .github/workflows/*.yml; then
 	echo "OK!"
 else
 	echo "prettier check failed!"
+	ERRORS=$((ERRORS + 1))
+fi
+
+# Biome
+
+echo -n "Running Biome format check... "
+if npx @biomejs/biome format .; then
+	echo "OK!"
+else
+	echo "Biome format check failed!"
+	ERRORS=$((ERRORS + 1))
+fi
+
+echo -n "Running Biome lint... "
+if npx @biomejs/biome lint .; then
+	echo "OK!"
+else
+	echo "Biome lint failed!"
 	ERRORS=$((ERRORS + 1))
 fi
 
