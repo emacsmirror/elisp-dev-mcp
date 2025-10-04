@@ -35,6 +35,8 @@
 (require 'elisp-dev-mcp)
 (require 'elisp-dev-mcp-no-checkdoc-test)
 
+(setq mcp-server-lib-ert-server-id "elisp-dev-mcp")
+
 ;;; Test functions used for function definition retrieval tests. Should be the
 ;;; first code in the file to keep the test line numbers stable.
 
@@ -182,7 +184,7 @@ Returns the parsed JSON response."
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              tool-name 1 `((,param-name . ""))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp (format "Empty %s name" param-name)))))
 
@@ -192,7 +194,7 @@ Returns the parsed JSON response."
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              tool-name 1 `((,param-name . 123))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp (format "Invalid %s name" param-name)))))
 
@@ -267,7 +269,7 @@ Returns the file contents as a string."
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              "elisp-read-source-file" 1 `((file-path . ,file-path))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp resp error-pattern))))
 
 ;;; Tests
@@ -286,7 +288,7 @@ Returns the file contents as a string."
             (mcp-server-lib-create-tools-call-request
              "elisp-describe-function" 1
              `((function . "non-existent-function-xyz"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function non-existent-function-xyz is void"))))
 
@@ -307,7 +309,7 @@ Returns the file contents as a string."
             (mcp-server-lib-create-tools-call-request
              "elisp-describe-function" 1
              `((function . "user-emacs-directory"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function user-emacs-directory is void"))))
 
@@ -400,7 +402,7 @@ Returns a list of our registered tools in the order:
 info-lookup-tool read-source-file-tool).
 Any tool not found will be nil in the list."
   (let* ((req (mcp-server-lib-create-tools-list-request))
-         (resp (mcp-server-lib-process-jsonrpc-parsed req))
+         (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id))
          (result (assoc-default 'result resp))
          (tools (assoc-default 'tools result))
          (describe-function-tool nil)
@@ -490,7 +492,7 @@ Any tool not found will be nil in the list."
   "Test that `elisp-get-function-definition' MCP handler works correctly."
   (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--without-header-comment" 56 59
+     "elisp-dev-mcp-test--without-header-comment" 58 61
      "(defun elisp-dev-mcp-test--without-header-comment (value)
   \"Simple function without a header comment.
 VALUE is multiplied by 2.\"
@@ -503,7 +505,7 @@ VALUE is multiplied by 2.\"
             (mcp-server-lib-create-tools-call-request
              "elisp-get-function-definition" 1
              `((function . "non-existent-function-xyz"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function non-existent-function-xyz is not found"))))
 
@@ -534,7 +536,7 @@ VALUE is multiplied by 2.\"
   "Test that `elisp-get-function-definition' includes header comments."
   (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--with-header-comment" 41 51
+     "elisp-dev-mcp-test--with-header-comment" 43 53
      ";; This is a header comment that should be included
 ;; when extracting the function definition
 (defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
@@ -684,7 +686,7 @@ D captures remaining arguments."
     (let* ((req (mcp-server-lib-create-tools-call-request
                  "elisp-get-function-definition" 1
                  `((function . "load-path"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function load-path is not found"))))
 
@@ -905,7 +907,7 @@ X and Y are dynamically scoped arguments."
              "elisp-describe-variable"
              1
              `((variable . "non-existent-variable-xyz"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req)))
+           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Variable non-existent-variable-xyz is not bound"))))
 
