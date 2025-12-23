@@ -114,6 +114,23 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-server-lib
   - Works directly with paths from =elisp-get-function-definition=
   - Returns complete file contents as string
 
+** Configuration for Alternative Package Managers
+
+By default, =elisp-read-source-file= can only access Emacs system
+directories and standard =ELPA= packages. For users of alternative
+package managers like straight.el, elpaca, or custom package setups,
+you can configure additional allowed directories:
+
+#+begin_src elisp
+(setq elisp-dev-mcp-additional-allowed-dirs
+      '("~/.emacs.d/straight/build/"
+        "~/.emacs.d/straight/repos/"
+        "~/my-elisp-packages/"))
+#+end_src
+
+*Security Note:* Only add directories you trust, as this allows the
+ MCP server to read any =.el= files in these locations.
+
 * License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the LICENSE file for details.

@@ -13,6 +13,15 @@ The tool now checks ~package-user-dir~ and ~package-directory-list~ instead of
 hardcoding ~/elpa/~ paths. This improves compatibility with different Emacs
 configurations and package managers like Eask.
 
+** New features
+
+*** Configurable additional allowed directories for elisp-read-source-file
+Added ~elisp-dev-mcp-additional-allowed-dirs~ custom variable to allow users
+of alternative package managers (straight.el, elpaca, etc.) to configure
+additional directories that ~elisp-read-source-file~ can access. The feature
+maintains security through path normalization and validation while extending
+functionality for custom package setups.
+
 * elisp-dev-mcp 1.0.0 (2025-07-22)
 
 ** Initial release
