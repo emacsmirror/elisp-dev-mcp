@@ -648,9 +648,10 @@ MCP Parameters:
             (when elisp-dev-mcp--system-lisp-dir
               (list (file-truename elisp-dev-mcp--system-lisp-dir)))
             ;; User-configured additional directories
-            (mapcar (lambda (dir)
-                      (file-truename (file-name-as-directory dir)))
-                    elisp-dev-mcp-additional-allowed-dirs)))
+            (mapcar
+             (lambda (dir)
+               (file-truename (file-name-as-directory dir)))
+             elisp-dev-mcp-additional-allowed-dirs)))
           ;; Check if file is under any allowed directory
           (allowed-p
            (cl-some
