@@ -97,6 +97,16 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
        (when (file-exists-p bytecode-file)
          (delete-file bytecode-file)))))
 
+(defmacro elisp-dev-mcp-test--with-temp-dir (var prefix &rest body)
+  "Execute BODY with VAR bound to a temp directory, deleted recursively on cleanup.
+PREFIX is passed to `make-temp-file'."
+  (declare (indent 2) (debug t))
+  `(let ((,var (make-temp-file ,prefix t)))
+     (unwind-protect
+         (progn ,@body)
+       (when (file-directory-p ,var)
+         (delete-directory ,var t)))))
+
 (defun elisp-dev-mcp-test--with-bytecode-describe-function
     (function-name)
   "Describe FUNCTION-NAME after loading bytecode file.
@@ -1272,102 +1282,72 @@ X and Y are dynamically scoped arguments."
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-additional-dirs ()
   "Test that `elisp-read-source-file` respects additional allowed directories."
-  (let* ((temp-dir (make-temp-file "elisp-dev-mcp-test" t))
-         (test-file (expand-file-name "test-package.el" temp-dir))
-         (test-content ";;; test-package.el --- Test package\n(provide 'test-package)\n;;; test-package.el ends here\n"))
-    (unwind-protect
-        (progn
-          ;; Create test file
-          (with-temp-file test-file
-            (insert test-content))
-          ;; First verify access is denied without configuration
-          (let ((elisp-dev-mcp-additional-allowed-dirs nil))
-            (elisp-dev-mcp-test--verify-read-source-file-error
-             test-file "Access denied: path outside allowed directories"))
-          ;; Now add the directory to allowed list and verify access works
-          (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
-            (let ((content (elisp-dev-mcp-test--read-source-file test-file)))
-              (should (string= content test-content)))))
-      ;; Cleanup
-      (when (file-exists-p test-file)
-        (delete-file test-file))
-      (when (file-directory-p temp-dir)
-        (delete-directory temp-dir)))))
+  (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-test"
+    (let* ((test-file (expand-file-name "test-package.el" temp-dir))
+           (test-content ";;; test-package.el --- Test package\n(provide 'test-package)\n;;; test-package.el ends here\n"))
+      ;; Create test file
+      (with-temp-file test-file
+        (insert test-content))
+      ;; First verify access is denied without configuration
+      (let ((elisp-dev-mcp-additional-allowed-dirs nil))
+        (elisp-dev-mcp-test--verify-read-source-file-error
+         test-file "Access denied: path outside allowed directories"))
+      ;; Now add the directory to allowed list and verify access works
+      (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
+        (let ((content (elisp-dev-mcp-test--read-source-file test-file)))
+          (should (string= content test-content)))))))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-additional-dirs-security ()
   "Test that additional directories don't compromise security."
-  (let* ((temp-dir (make-temp-file "elisp-dev-mcp-test" t))
-         (allowed-file (expand-file-name "allowed.el" temp-dir))
-         (forbidden-file "/etc/passwd.el"))
-    (unwind-protect
-        (progn
-          ;; Create test file in allowed directory
-          (with-temp-file allowed-file
-            (insert ";;; allowed.el --- Allowed file\n(provide 'allowed)\n"))
-          ;; Configure additional directory
-          (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
-            ;; Should be able to read allowed file
-            (let ((content (elisp-dev-mcp-test--read-source-file allowed-file)))
-              (should (string-match-p "allowed.el" content)))
-            ;; Should still be denied access to system files
-            (elisp-dev-mcp-test--verify-read-source-file-error
-             forbidden-file "Access denied: path outside allowed directories")))
-      ;; Cleanup
-      (when (file-exists-p allowed-file)
-        (delete-file allowed-file))
-      (when (file-directory-p temp-dir)
-        (delete-directory temp-dir)))))
+  (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-test"
+    (let ((allowed-file (expand-file-name "allowed.el" temp-dir))
+          (forbidden-file "/etc/passwd.el"))
+      ;; Create test file in allowed directory
+      (with-temp-file allowed-file
+        (insert ";;; allowed.el --- Allowed file\n(provide 'allowed)\n"))
+      ;; Configure additional directory
+      (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
+        ;; Should be able to read allowed file
+        (let ((content (elisp-dev-mcp-test--read-source-file allowed-file)))
+          (should (string-match-p "allowed.el" content)))
+        ;; Should still be denied access to system files
+        (elisp-dev-mcp-test--verify-read-source-file-error
+         forbidden-file "Access denied: path outside allowed directories")))))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-multiple-additional-dirs ()
   "Test that multiple additional directories work correctly."
-  (let* ((temp-dir1 (make-temp-file "elisp-dev-mcp-test1" t))
-         (temp-dir2 (make-temp-file "elisp-dev-mcp-test2" t))
-         (test-file1 (expand-file-name "package1.el" temp-dir1))
-         (test-file2 (expand-file-name "package2.el" temp-dir2)))
-    (unwind-protect
-        (progn
-          ;; Create test files
-          (with-temp-file test-file1
-            (insert ";;; package1.el --- Package 1\n(provide 'package1)\n"))
-          (with-temp-file test-file2
-            (insert ";;; package2.el --- Package 2\n(provide 'package2)\n"))
-          ;; Configure multiple additional directories
-          (let ((elisp-dev-mcp-additional-allowed-dirs
-                 (list temp-dir1 temp-dir2)))
-            ;; Should be able to read from both directories
-            (let ((content1 (elisp-dev-mcp-test--read-source-file test-file1))
-                  (content2 (elisp-dev-mcp-test--read-source-file test-file2)))
-              (should (string-match-p "package1.el" content1))
-              (should (string-match-p "package2.el" content2)))))
-      ;; Cleanup
-      (dolist (file (list test-file1 test-file2))
-        (when (file-exists-p file)
-          (delete-file file)))
-      (dolist (dir (list temp-dir1 temp-dir2))
-        (when (file-directory-p dir)
-          (delete-directory dir))))))
+  (elisp-dev-mcp-test--with-temp-dir temp-dir1 "elisp-dev-mcp-test1"
+    (elisp-dev-mcp-test--with-temp-dir temp-dir2 "elisp-dev-mcp-test2"
+      (let ((test-file1 (expand-file-name "package1.el" temp-dir1))
+            (test-file2 (expand-file-name "package2.el" temp-dir2)))
+        ;; Create test files
+        (with-temp-file test-file1
+          (insert ";;; package1.el --- Package 1\n(provide 'package1)\n"))
+        (with-temp-file test-file2
+          (insert ";;; package2.el --- Package 2\n(provide 'package2)\n"))
+        ;; Configure multiple additional directories
+        (let ((elisp-dev-mcp-additional-allowed-dirs
+               (list temp-dir1 temp-dir2)))
+          ;; Should be able to read from both directories
+          (let ((content1 (elisp-dev-mcp-test--read-source-file test-file1))
+                (content2 (elisp-dev-mcp-test--read-source-file test-file2)))
+            (should (string-match-p "package1.el" content1))
+            (should (string-match-p "package2.el" content2))))))))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-additional-dirs-normalization ()
   "Test that additional directories are properly normalized with file-truename."
-  (let* ((temp-dir (make-temp-file "elisp-dev-mcp-test" t))
-         (test-file (expand-file-name "normalize-test.el" temp-dir))
-         ;; Create a path without trailing slash
-         (dir-without-slash (directory-file-name temp-dir)))
-    (unwind-protect
-        (progn
-          ;; Create test file
-          (with-temp-file test-file
-            (insert ";;; normalize-test.el --- Normalization test\n(provide 'normalize-test)\n"))
-          ;; Configure directory without trailing slash
-          (let ((elisp-dev-mcp-additional-allowed-dirs (list dir-without-slash)))
-            ;; Should still be able to read the file (path normalization should work)
-            (let ((content (elisp-dev-mcp-test--read-source-file test-file)))
-              (should (string-match-p "normalize-test.el" content)))))
-      ;; Cleanup
-      (when (file-exists-p test-file)
-        (delete-file test-file))
-      (when (file-directory-p temp-dir)
-        (delete-directory temp-dir)))))
+  (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-test"
+    (let ((test-file (expand-file-name "normalize-test.el" temp-dir))
+          ;; Create a path without trailing slash
+          (dir-without-slash (directory-file-name temp-dir)))
+      ;; Create test file
+      (with-temp-file test-file
+        (insert ";;; normalize-test.el --- Normalization test\n(provide 'normalize-test)\n"))
+      ;; Configure directory without trailing slash
+      (let ((elisp-dev-mcp-additional-allowed-dirs (list dir-without-slash)))
+        ;; Should still be able to read the file (path normalization should work)
+        (let ((content (elisp-dev-mcp-test--read-source-file test-file)))
+          (should (string-match-p "normalize-test.el" content)))))))
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
   "Test `describe-function' with byte-compiled functions."
