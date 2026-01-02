@@ -1270,17 +1270,6 @@ X and Y are dynamically scoped arguments."
   "Test that `elisp-dev-mcp-additional-allowed-dirs` has correct default value."
   (should (null elisp-dev-mcp-additional-allowed-dirs)))
 
-(ert-deftest elisp-dev-mcp-test-additional-allowed-dirs-customization ()
-  "Test that `elisp-dev-mcp-additional-allowed-dirs` can be customized."
-  (let ((elisp-dev-mcp-additional-allowed-dirs
-         '("/tmp/test-elisp" "~/my-packages")))
-    ;; Test setting the variable
-    (should (equal elisp-dev-mcp-additional-allowed-dirs
-                   '("/tmp/test-elisp" "~/my-packages")))
-    ;; Test that it's a list of strings
-    (should (listp elisp-dev-mcp-additional-allowed-dirs))
-    (should (cl-every #'stringp elisp-dev-mcp-additional-allowed-dirs))))
-
 (ert-deftest elisp-dev-mcp-test-read-source-file-additional-dirs ()
   "Test that `elisp-read-source-file` respects additional allowed directories."
   (let* ((temp-dir (make-temp-file "elisp-dev-mcp-test" t))
