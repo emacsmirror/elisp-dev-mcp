@@ -406,10 +406,20 @@ MCP Parameters:
   "Extract function definition for FN-NAME from FUNC-FILE.
 SYM is the function symbol.
 IS-ALIAS and ALIASED-TO are used for special handling of aliases."
-  (with-temp-buffer
-    (insert-file-contents func-file)
-    (goto-char (point-min))
-    (let ((def-pos
+  (let ((actual-file
+         (cond
+          ((file-exists-p func-file)
+           func-file)
+          ((file-exists-p (concat func-file ".gz"))
+           (concat func-file ".gz"))
+          (t
+           (mcp-server-lib-tool-throw
+            (format "File not found: %s (tried .el and .el.gz)"
+                    func-file))))))
+    (with-temp-buffer
+      (insert-file-contents actual-file)
+      (goto-char (point-min))
+      (let ((def-pos
            (find-function-search-for-symbol sym nil func-file)))
       (unless def-pos
         (mcp-server-lib-tool-throw
@@ -442,7 +452,7 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
            (nth 0 source-info)
            func-file
            (nth 1 source-info)
-           (nth 2 source-info)))))))
+           (nth 2 source-info))))))))
 
 (defun elisp-dev-mcp--extract-function-info (sym)
   "Extract function information for symbol SYM.
