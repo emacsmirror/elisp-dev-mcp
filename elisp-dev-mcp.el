@@ -443,7 +443,8 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
           ;; Find the start point including any header comments
           (let* ((func-point (point))
                  (start-point
-                  (elisp-dev-mcp--find-header-comment-start func-point))
+                  (elisp-dev-mcp--find-header-comment-start
+                   func-point))
                  (end-point
                   (progn
                     (goto-char func-point)

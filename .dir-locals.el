@@ -2,4 +2,5 @@
                      (indent-tabs-mode . nil)
                      (sentence-end-double-space . t)
                      (elisp-lint-indent-specs . ((elisp-dev-mcp-test--with-server . defun)
-                                                  (elisp-dev-mcp-test--with-bytecode-file . defun))))))
+                                                  (elisp-dev-mcp-test--with-bytecode-file . defun)
+                                                 (elisp-dev-mcp--with-auto-compression . defun))))))
