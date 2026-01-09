@@ -1,6 +1,6 @@
 ;;; elisp-dev-mcp-test.el --- Tests for elisp-dev-mcp -*- lexical-binding: t -*-
 
-;; Copyright (C) 2025 Laurynas Biveinis
+;; Copyright (C) 2025-2026 elisp-dev-mcp.el contributors
 
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

@@ -1,10 +1,10 @@
 elisp-dev-mcp NEWS -- history of user-visible changes.
 
-Copyright (C) 2024-2025 Laurynas Biveinis
+Copyright (C) 2024-2026 Laurynas Biveinis
 
 This file is part of elisp-dev-mcp.
 
-* elisp-dev-mcp 1.1.1 (unreleased)
+* elisp-dev-mcp 1.1.1 (2026-01-09)
 
 ** Bug fixes
 
