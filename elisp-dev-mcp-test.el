@@ -97,6 +97,22 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
        (when (file-exists-p bytecode-file)
          (delete-file bytecode-file)))))
 
+(defmacro elisp-dev-mcp-test--with-compressed-file (&rest body)
+  "Execute BODY with compressed test file loaded.
+Loads elisp-dev-mcp-compressed-test.el.gz and cleans up the loaded function."
+  (declare (indent defun) (debug t))
+  `(let ((source-file
+          (expand-file-name "elisp-dev-mcp-compressed-test.el")))
+     (unwind-protect
+         (progn
+           ;; Verify setup: only .gz exists, no .el
+           (should (file-exists-p (concat source-file ".gz")))
+           (should-not (file-exists-p source-file))
+           ;; Load (Emacs transparently decompresses .gz files)
+           (should (load source-file nil t t))
+           ,@body)
+       (fmakunbound 'elisp-dev-mcp-compressed-test--sample-function))))
+
 (defmacro elisp-dev-mcp-test--with-temp-dir (var prefix &rest body)
   "Execute BODY with VAR bound to a temp directory, deleted recursively on cleanup.
 PREFIX is passed to `make-temp-file'."
@@ -683,6 +699,22 @@ D captures remaining arguments."
       (should (string-match-p "if" message))
       (should (string-match-p "elisp-describe-function" message))
       (should (string-match-p "docstring" message)))))
+
+(ert-deftest elisp-dev-mcp-test-get-function-definition-compressed ()
+  "Test that `elisp-get-function-definition' reads from compressed .el.gz files."
+  (elisp-dev-mcp-test--with-compressed-file
+    (elisp-dev-mcp-test--with-server
+      (let* ((parsed-resp
+              (elisp-dev-mcp-test--get-definition-response-data
+               "elisp-dev-mcp-compressed-test--sample-function"))
+             (source (assoc-default 'source parsed-resp))
+             (file-path (assoc-default 'file-path parsed-resp)))
+        ;; Verify we got the definition from .gz file
+        (should source)
+        (should (string-match-p
+                 "defun elisp-dev-mcp-compressed-test--sample-function" source))
+        (should (string-match-p "Header comment" source))
+        (should (string-match-p "elisp-dev-mcp-compressed-test\\.el" file-path))))))
 
 (ert-deftest elisp-dev-mcp-test-get-empty-string-function-definition
     ()

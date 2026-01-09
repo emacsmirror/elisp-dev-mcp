@@ -420,39 +420,39 @@ IS-ALIAS and ALIASED-TO are used for special handling of aliases."
       (insert-file-contents actual-file)
       (goto-char (point-min))
       (let ((def-pos
-           (find-function-search-for-symbol sym nil func-file)))
-      (unless def-pos
-        (mcp-server-lib-tool-throw
-         (format "Could not locate definition for %s" fn-name)))
-      (goto-char (cdr def-pos))
+             (find-function-search-for-symbol sym nil func-file)))
+        (unless def-pos
+          (mcp-server-lib-tool-throw
+           (format "Could not locate definition for %s" fn-name)))
+        (goto-char (cdr def-pos))
 
-      ;; Find the start point including any header comments
-      (let* ((func-point (point))
-             (start-point
-              (elisp-dev-mcp--find-header-comment-start func-point))
-             (end-point
-              (progn
-                (goto-char func-point)
-                (forward-sexp)
-                (point)))
-             (source-info
-              (elisp-dev-mcp--extract-source-region
-               start-point end-point)))
+        ;; Find the start point including any header comments
+        (let* ((func-point (point))
+               (start-point
+                (elisp-dev-mcp--find-header-comment-start func-point))
+               (end-point
+                (progn
+                  (goto-char func-point)
+                  (forward-sexp)
+                  (point)))
+               (source-info
+                (elisp-dev-mcp--extract-source-region
+                 start-point end-point)))
 
-        ;; Return the result, with special handling for aliases
-        (if is-alias
-            (elisp-dev-mcp--process-alias-source
+          ;; Return the result, with special handling for aliases
+          (if is-alias
+              (elisp-dev-mcp--process-alias-source
+               (nth 0 source-info)
+               fn-name
+               aliased-to
+               func-file
+               (nth 1 source-info)
+               (nth 2 source-info))
+            (elisp-dev-mcp--json-encode-source-location
              (nth 0 source-info)
-             fn-name
-             aliased-to
              func-file
              (nth 1 source-info)
-             (nth 2 source-info))
-          (elisp-dev-mcp--json-encode-source-location
-           (nth 0 source-info)
-           func-file
-           (nth 1 source-info)
-           (nth 2 source-info))))))))
+             (nth 2 source-info))))))))
 
 (defun elisp-dev-mcp--extract-function-info (sym)
   "Extract function information for symbol SYM.
