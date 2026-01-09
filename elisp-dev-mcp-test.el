@@ -1314,11 +1314,8 @@ X and Y are dynamically scoped arguments."
           (concat
            (file-name-sans-extension (locate-library "subr")) ".el"))
          (text (elisp-dev-mcp-test--read-source-file system-file)))
-    ;; Verify that subr.el doesn't exist but subr.el.gz does
-    (should-not (file-exists-p system-file))
-    (should (file-exists-p (concat system-file ".gz")))
     ;; Should contain typical Emacs system file content
-    ;; This verifies that .gz files are handled transparently
+    ;; (works with both compressed .el.gz and uncompressed .el files)
     (should (string-match-p ";;; subr.el" text))
     (should (string-match-p "GNU Emacs" text))))
 
