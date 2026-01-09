@@ -49,6 +49,15 @@ ERRORS=0
 ELISP_SYNTAX_FAILED=0
 SHELL_SYNTAX_FAILED=0
 
+# Install dependencies first (required for syntax check and tests)
+echo -n "Installing dependencies... "
+if eask install-deps; then
+	echo "OK!"
+else
+	echo "Failed to install dependencies!"
+	ERRORS=$((ERRORS + 1))
+fi
+
 # Elisp
 
 echo -n "Checking Elisp syntax... "
