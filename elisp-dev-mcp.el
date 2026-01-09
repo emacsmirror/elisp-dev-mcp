@@ -79,6 +79,19 @@ the MCP server to read any .el files in these locations."
   "Return t if DOC is a non-empty documentation string, nil otherwise."
   (and doc (not (string-empty-p doc))))
 
+(defmacro elisp-dev-mcp--with-auto-compression (&rest body)
+  "Execute BODY with `auto-compression-mode' temporarily enabled.
+Restores the original mode state after BODY completes."
+  (declare (indent 0) (debug t))
+  `(let ((elisp-dev-mcp--was-enabled auto-compression-mode))
+     (unwind-protect
+         (progn
+           (unless elisp-dev-mcp--was-enabled
+             (auto-compression-mode 1))
+           ,@body)
+       (unless elisp-dev-mcp--was-enabled
+         (auto-compression-mode -1)))))
+
 ;;; JSON Response Helpers
 
 (defun elisp-dev-mcp--json-encode-source-location
@@ -406,53 +419,54 @@ MCP Parameters:
   "Extract function definition for FN-NAME from FUNC-FILE.
 SYM is the function symbol.
 IS-ALIAS and ALIASED-TO are used for special handling of aliases."
-  (let ((actual-file
-         (cond
-          ((file-exists-p func-file)
-           func-file)
-          ((file-exists-p (concat func-file ".gz"))
-           (concat func-file ".gz"))
-          (t
-           (mcp-server-lib-tool-throw
-            (format "File not found: %s (tried .el and .el.gz)"
-                    func-file))))))
-    (with-temp-buffer
-      (insert-file-contents actual-file)
-      (goto-char (point-min))
-      (let ((def-pos
-             (find-function-search-for-symbol sym nil func-file)))
-        (unless def-pos
-          (mcp-server-lib-tool-throw
-           (format "Could not locate definition for %s" fn-name)))
-        (goto-char (cdr def-pos))
+  (elisp-dev-mcp--with-auto-compression
+    (let ((actual-file
+           (cond
+            ((file-exists-p func-file)
+             func-file)
+            ((file-exists-p (concat func-file ".gz"))
+             (concat func-file ".gz"))
+            (t
+             (mcp-server-lib-tool-throw
+              (format "File not found: %s (tried .el and .el.gz)"
+                      func-file))))))
+      (with-temp-buffer
+        (insert-file-contents actual-file)
+        (goto-char (point-min))
+        (let ((def-pos
+               (find-function-search-for-symbol sym nil func-file)))
+          (unless def-pos
+            (mcp-server-lib-tool-throw
+             (format "Could not locate definition for %s" fn-name)))
+          (goto-char (cdr def-pos))
 
-        ;; Find the start point including any header comments
-        (let* ((func-point (point))
-               (start-point
-                (elisp-dev-mcp--find-header-comment-start func-point))
-               (end-point
-                (progn
-                  (goto-char func-point)
-                  (forward-sexp)
-                  (point)))
-               (source-info
-                (elisp-dev-mcp--extract-source-region
-                 start-point end-point)))
+          ;; Find the start point including any header comments
+          (let* ((func-point (point))
+                 (start-point
+                  (elisp-dev-mcp--find-header-comment-start func-point))
+                 (end-point
+                  (progn
+                    (goto-char func-point)
+                    (forward-sexp)
+                    (point)))
+                 (source-info
+                  (elisp-dev-mcp--extract-source-region
+                   start-point end-point)))
 
-          ;; Return the result, with special handling for aliases
-          (if is-alias
-              (elisp-dev-mcp--process-alias-source
+            ;; Return the result, with special handling for aliases
+            (if is-alias
+                (elisp-dev-mcp--process-alias-source
+                 (nth 0 source-info)
+                 fn-name
+                 aliased-to
+                 func-file
+                 (nth 1 source-info)
+                 (nth 2 source-info))
+              (elisp-dev-mcp--json-encode-source-location
                (nth 0 source-info)
-               fn-name
-               aliased-to
                func-file
                (nth 1 source-info)
-               (nth 2 source-info))
-            (elisp-dev-mcp--json-encode-source-location
-             (nth 0 source-info)
-             func-file
-             (nth 1 source-info)
-             (nth 2 source-info))))))))
+               (nth 2 source-info)))))))))
 
 (defun elisp-dev-mcp--extract-function-info (sym)
   "Extract function information for symbol SYM.
@@ -689,9 +703,10 @@ MCP Parameters:
                   file-path)))
 
        ;; 5. Read and return contents
-       (with-temp-buffer
-         (insert-file-contents actual-file)
-         (buffer-string))))))
+       (elisp-dev-mcp--with-auto-compression
+         (with-temp-buffer
+           (insert-file-contents actual-file)
+           (buffer-string)))))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()

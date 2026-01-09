@@ -101,16 +101,21 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
   "Execute BODY with compressed test file loaded.
 Loads elisp-dev-mcp-compressed-test.el.gz and cleans up the loaded function."
   (declare (indent defun) (debug t))
-  `(let ((source-file
-          (expand-file-name "elisp-dev-mcp-compressed-test.el")))
+  `(let* ((test-dir (file-name-directory (locate-library "elisp-dev-mcp-test")))
+          (source-file
+           (expand-file-name "elisp-dev-mcp-compressed-test.el" test-dir))
+          (original-load-path load-path))
      (unwind-protect
          (progn
+           ;; Add test dir to load-path so load can find the file
+           (push test-dir load-path)
            ;; Verify setup: only .gz exists, no .el
            (should (file-exists-p (concat source-file ".gz")))
            (should-not (file-exists-p source-file))
-           ;; Load (Emacs transparently decompresses .gz files)
-           (should (load source-file nil t t))
+           ;; Load using library name (Emacs transparently decompresses .gz)
+           (should (load "elisp-dev-mcp-compressed-test" nil t))
            ,@body)
+       (setq load-path original-load-path)
        (fmakunbound 'elisp-dev-mcp-compressed-test--sample-function))))
 
 (defmacro elisp-dev-mcp-test--with-temp-dir (var prefix &rest body)
@@ -715,6 +720,54 @@ D captures remaining arguments."
                  "defun elisp-dev-mcp-compressed-test--sample-function" source))
         (should (string-match-p "Header comment" source))
         (should (string-match-p "elisp-dev-mcp-compressed-test\\.el" file-path))))))
+
+(ert-deftest elisp-dev-mcp-test-get-function-definition-compressed-no-auto-mode
+    ()
+  "Test `elisp-get-function-definition' reads .el.gz when auto-compression-mode is nil.
+This verifies that the code can read from .gz files even without
+auto-compression-mode enabled."
+  (let ((test-dir (file-name-directory (locate-library "elisp-dev-mcp-test")))
+        (original-load-path load-path)
+        (original-auto-compression-mode auto-compression-mode))
+    (unwind-protect
+        (progn
+          ;; Add test dir to load-path so find-lisp-object-file-name works
+          (push test-dir load-path)
+          ;; Verify setup: only .gz exists
+          (should (file-exists-p
+                   (expand-file-name
+                    "elisp-dev-mcp-compressed-test.el.gz" test-dir)))
+          (should-not (file-exists-p
+                       (expand-file-name
+                        "elisp-dev-mcp-compressed-test.el" test-dir)))
+          ;; Load using library name (not full path) so load-history is correct
+          (load "elisp-dev-mcp-compressed-test" nil t)
+          ;; Verify find-lisp-object-file-name returns the .gz path
+          (should (string-suffix-p
+                   ".gz"
+                   (find-lisp-object-file-name
+                    'elisp-dev-mcp-compressed-test--sample-function 'defun)))
+          ;; Now disable auto-compression-mode
+          (auto-compression-mode -1)
+          ;; Call the MCP tool - should succeed in reading .gz file
+          (elisp-dev-mcp-test--with-server
+            (let* ((parsed-resp
+                    (elisp-dev-mcp-test--get-definition-response-data
+                     "elisp-dev-mcp-compressed-test--sample-function"))
+                   (source (assoc-default 'source parsed-resp))
+                   (file-path (assoc-default 'file-path parsed-resp)))
+              ;; Verify we got the definition from .gz file
+              (should source)
+              (should (string-match-p
+                       "defun elisp-dev-mcp-compressed-test--sample-function"
+                       source))
+              (should (string-match-p "Header comment" source))
+              (should (string-match-p
+                       "elisp-dev-mcp-compressed-test\\.el" file-path)))))
+      ;; Cleanup
+      (setq load-path original-load-path)
+      (auto-compression-mode (if original-auto-compression-mode 1 -1))
+      (fmakunbound 'elisp-dev-mcp-compressed-test--sample-function))))
 
 (ert-deftest elisp-dev-mcp-test-get-empty-string-function-definition
     ()
