@@ -4,6 +4,15 @@ Copyright (C) 2024-2025 Laurynas Biveinis
 
 This file is part of elisp-dev-mcp.
 
+* elisp-dev-mcp 1.1.1 (unreleased)
+
+** Bug fixes
+
+*** elisp-get-function-definition now handles compressed source files
+The tool now checks for ~.el.gz~ files when the ~.el~ file doesn't exist,
+mirroring the logic already present in ~elisp-read-source-file~. This fixes
+retrieval of function definitions from compressed Emacs system files.
+
 * elisp-dev-mcp 1.1.0 (2026-01-02)
 
 ** Bug fixes
