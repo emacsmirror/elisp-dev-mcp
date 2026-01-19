@@ -96,22 +96,29 @@ Before using the MCP server, you must start it in Emacs with =M-x mcp-server-lib
 
 *** Elisp Source File Reader
 - Name: =elisp-read-source-file=
-- Description: Read Elisp source files from Emacs system directories or ELPA packages
+- Description: Read Elisp source files from Emacs system directories or ELPA packages. Accepts either library names or absolute file paths.
 - Parameters:
-  - =file-path=: Absolute path to =.el= file (string)
+  - =library-or-path=: Library name (e.g., ="subr"=, ="org"=) or absolute path to =.el= file (string)
 - Returns:
   - The complete file contents as a string
-  - or =error=: Error message if file not found, invalid format, or access denied (string)
-- Examples:
-  - ="/opt/homebrew/Cellar/emacs-mac/emacs-29.1-mac-10.0/share/emacs/29.1/lisp/files.el"= - Read system file
-  - ="/Users/name/.emacs.d/elpa/package-1.0/package.el"= - Read ELPA package
+  - or =error=: Error message if library not found, file not found, invalid format, or access denied (string)
+- Input modes:
+  1. *Library names* (recommended for built-in and installed packages):
+     - Simple names without path separators: ="subr"=, ="files"=, ="org"=
+     - Resolved via Emacs =locate-library= function (searches =load-path=)
+     - Examples: ="subr"=, ="mcp-server-lib"=, ="org"=
+  2. *Absolute paths* (for compatibility with other =elisp-dev= tools):
+     - Full paths ending in =.el=
+     - Returned by =elisp-get-function-definition=
+     - Examples: ="/opt/homebrew/.../lisp/files.el"=, ="/Users/name/.emacs.d/elpa/package-1.0/package.el"=
 - Security:
-  - Only reads from Emacs system lisp directories and =~/.emacs.d/elpa/=
+  - Only reads from Emacs system lisp directories and ELPA directories
   - Rejects paths with =..= traversal
   - Resolves symlinks to prevent escaping allowed directories
+  - Library names must resolve to paths within allowed directories
 - Features:
   - Transparently handles =.el.gz= compressed files
-  - Works directly with paths from =elisp-get-function-definition=
+  - Works with both built-in Emacs libraries and installed packages
   - Returns complete file contents as string
 
 ** Configuration for Alternative Package Managers

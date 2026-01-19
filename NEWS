@@ -4,6 +4,24 @@ Copyright (C) 2024-2026 Laurynas Biveinis
 
 This file is part of elisp-dev-mcp.
 
+* elisp-dev-mcp 1.2.0 (TBD)
+
+** New features
+
+*** elisp-read-source-file now accepts library names
+The tool can now accept library names (e.g., "subr", "mcp-server-lib")
+in addition to absolute file paths. Library names are resolved using
+Emacs ~locate-library~ and validated against the same security whitelist.
+This makes it easier for AI agents to read built-in Emacs packages
+without needing to first determine the Emacs installation path.
+
+Examples:
+- ~elisp-read-source-file "subr"~ - reads built-in subr.el
+- ~elisp-read-source-file "mcp-server-lib"~ - reads installed package
+- ~elisp-read-source-file "/absolute/path/file.el"~ - still works as before
+
+This addresses GitHub issue #5.
+
 * elisp-dev-mcp 1.1.1 (2026-01-09)
 
 ** Bug fixes

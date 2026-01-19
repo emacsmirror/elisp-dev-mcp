@@ -286,20 +286,21 @@ ARGS should be an alist of parameter names and values."
     (let ((text (mcp-server-lib-ert-call-tool tool-name args)))
       (json-read-from-string text))))
 
-(defun elisp-dev-mcp-test--read-source-file (file-path)
-  "Read source file at FILE-PATH using elisp-read-source-file tool.
+(defun elisp-dev-mcp-test--read-source-file (library-or-path)
+  "Read source file at LIBRARY-OR-PATH using elisp-read-source-file tool.
+LIBRARY-OR-PATH can be a library name or absolute file path.
 Returns the file contents as a string."
   (elisp-dev-mcp-test--with-server
     (mcp-server-lib-ert-call-tool
-     "elisp-read-source-file" `((file-path . ,file-path)))))
+     "elisp-read-source-file" `((library-or-path . ,library-or-path)))))
 
 (defun elisp-dev-mcp-test--verify-read-source-file-error
-    (file-path error-pattern)
-  "Verify that reading FILE-PATH produces error matching ERROR-PATTERN."
+    (library-or-path error-pattern)
+  "Verify that reading LIBRARY-OR-PATH produces error matching ERROR-PATTERN."
   (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-source-file" 1 `((file-path . ,file-path))))
+             "elisp-read-source-file" 1 `((library-or-path . ,library-or-path))))
            (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp resp error-pattern))))
 
@@ -464,6 +465,18 @@ Any tool not found will be nil in the list."
      describe-variable-tool
      info-lookup-tool
      read-source-file-tool)))
+
+(ert-deftest elisp-dev-mcp-test-read-source-file-empty-string ()
+  "Test that empty string input is rejected with appropriate error."
+  (elisp-dev-mcp-test--verify-read-source-file-error
+   ""
+   "Invalid"))
+
+(ert-deftest elisp-dev-mcp-test-read-source-file-whitespace-only ()
+  "Test that whitespace-only string input is rejected with appropriate error."
+  (elisp-dev-mcp-test--verify-read-source-file-error
+   "   "
+   "Invalid"))
 
 (ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
     ()
@@ -1319,6 +1332,96 @@ X and Y are dynamically scoped arguments."
     (should (string-match-p ";;; subr.el" text))
     (should (string-match-p "GNU Emacs" text))))
 
+(ert-deftest elisp-dev-mcp-test-read-source-file-by-library-name-system ()
+  "Test that `elisp-read-source-file` can read system library by name."
+  ;; Test reading a system library by name (not absolute path).
+  (let ((text (elisp-dev-mcp-test--read-source-file "subr")))
+    ;; Should contain the subr.el file header
+    (should (string-match-p ";;; subr.el" text))
+    ;; Should contain typical system library content
+    (should (string-match-p "GNU Emacs" text))))
+
+(ert-deftest elisp-dev-mcp-test-read-source-file-by-library-name-elpa ()
+  "Test that `elisp-read-source-file` can read ELPA library by name."
+  ;; Test reading an ELPA package by library name.
+  ;; In test environments, we need to ensure locate-library finds the package
+  ;; in the test package directory, not in the user's global emacs directory.
+  ;; We do this by temporarily modifying load-path.
+  (let* ((test-pkg-dir (expand-file-name "elpa/" user-emacs-directory))
+         ;; Save original load-path
+         (original-load-path load-path)
+         ;; Build new load-path with only test and system directories
+         (test-load-path
+          (append
+           ;; Add all subdirectories of test package directory
+           (when (file-directory-p test-pkg-dir)
+             (directory-files test-pkg-dir t "^[^.]"))
+           ;; Keep system directories
+           (cl-remove-if
+            (lambda (dir)
+              (and (stringp dir)
+                   (string-prefix-p (expand-file-name "~/.emacs.d/") dir)))
+            load-path))))
+    (unwind-protect
+        (progn
+          (setq load-path test-load-path)
+          (let ((text (elisp-dev-mcp-test--read-source-file "mcp-server-lib")))
+            ;; Should contain the file header
+            (should (string-match-p ";;; mcp-server-lib.el" text))
+            ;; Should contain package metadata
+            (should (string-match-p "Model Context Protocol" text))
+            ;; Should end with proper footer
+            (should (string-match-p ";;; mcp-server-lib.el ends here" text))))
+      ;; Restore original load-path
+      (setq load-path original-load-path))))
+
+(ert-deftest elisp-dev-mcp-test-read-source-file-library-not-found ()
+  "Test that `elisp-read-source-file` handles nonexistent libraries."
+  ;; Test that a nonexistent library name produces an appropriate error.
+  (elisp-dev-mcp-test--verify-read-source-file-error
+   "nonexistent-library-xyz-12345"
+   "Library not found: nonexistent-library-xyz-12345"))
+
+(ert-deftest elisp-dev-mcp-test-read-source-file-by-library-name-elc-gz ()
+  "Test that `elisp-read-source-file` handles .elc.gz compressed bytecode."
+  ;; Test reading a library when locate-library returns .elc.gz.
+  ;; This tests the fix for CR-001: proper handling of .elc.gz files.
+  ;; The system should correctly resolve .elc.gz -> .el and find the source.
+  (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-elc-gz-test"
+    (let* ((lib-name "test-elc-gz-lib")
+           (el-file (expand-file-name (concat lib-name ".el") temp-dir))
+           (elc-file (expand-file-name (concat lib-name ".elc") temp-dir))
+           (elc-gz-file (concat elc-file ".gz"))
+           (test-content ";;; test-elc-gz-lib.el --- Test library\n(defun test-func () \"test\")\n(provide 'test-elc-gz-lib)\n;;; test-elc-gz-lib.el ends here\n")
+           (original-load-path load-path))
+      ;; Create the source file
+      (with-temp-file el-file
+        (insert test-content))
+      ;; Byte-compile it
+      (byte-compile-file el-file)
+      ;; Compress the .elc file to .elc.gz
+      (call-process "gzip" nil nil nil "-f" elc-file)
+      ;; Verify both .el and .elc.gz exist (mimics real package structure)
+      (should (file-exists-p el-file))
+      (should (file-exists-p elc-gz-file))
+      (should-not (file-exists-p elc-file))
+      ;; Add temp dir to load-path and try to read by library name
+      (unwind-protect
+          (progn
+            (setq load-path (cons temp-dir load-path))
+            ;; locate-library should find the .elc.gz file (prefers bytecode)
+            (let ((located (locate-library lib-name)))
+              (should located)
+              (should (string-suffix-p ".elc.gz" located)))
+            ;; Reading by library name should correctly resolve to .el source
+            ;; This verifies CR-001 fix: .elc.gz -> .elc -> .el conversion works
+            (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
+              (let ((text (elisp-dev-mcp-test--read-source-file lib-name)))
+                (should (string-match-p "test-elc-gz-lib.el" text))
+                (should (string-match-p "test-func" text)))))
+        ;; Restore original load-path
+        (setq load-path original-load-path)))))
+
 (ert-deftest elisp-dev-mcp-test-read-source-file-invalid-format ()
   "Test that `elisp-read-source-file` rejects invalid formats."
   ;; Test relative path.
@@ -1346,7 +1449,7 @@ X and Y are dynamically scoped arguments."
           (expand-file-name "test-package-1.0/" package-user-dir))
          (non-existent-path
           (expand-file-name "non-existent-file.el" test-package-dir))
-         (error-pattern "File not found: .* (tried .el and .el.gz)"))
+         (error-pattern "File not found:"))
     (elisp-dev-mcp-test--verify-read-source-file-error
      non-existent-path error-pattern)))
 
