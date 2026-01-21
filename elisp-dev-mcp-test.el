@@ -88,7 +88,7 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
   (declare (indent defun) (debug t))
   `(let* ((source-file
            (expand-file-name "elisp-dev-mcp-bytecode-test.el"))
-          (bytecode-file (byte-compile-dest-file source-file)))
+          (bytecode-file (concat (file-name-sans-extension source-file) ".elc")))
      (unwind-protect
          (progn
            (should (byte-compile-file source-file))
