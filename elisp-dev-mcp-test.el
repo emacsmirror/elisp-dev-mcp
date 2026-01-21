@@ -1331,7 +1331,14 @@ X and Y are dynamically scoped arguments."
               (file-name-sans-extension (file-name-sans-extension located))
             ;; For .el or .elc: just strip the extension
             (file-name-sans-extension located)))
-         (system-file (concat base-path ".el"))
+         ;; Check which file actually exists (.el or .el.gz)
+         (el-path (concat base-path ".el"))
+         (el-gz-path (concat base-path ".el.gz"))
+         (system-file
+          (cond
+           ((file-exists-p el-path) el-path)
+           ((file-exists-p el-gz-path) el-gz-path)
+           (t (error "Neither %s nor %s exists" el-path el-gz-path))))
          (text (elisp-dev-mcp-test--read-source-file system-file)))
     ;; Should contain typical Emacs system file content
     ;; (works with both compressed .el.gz and uncompressed .el files)
