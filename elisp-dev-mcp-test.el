@@ -1323,9 +1323,15 @@ X and Y are dynamically scoped arguments."
 (ert-deftest elisp-dev-mcp-test-read-source-file-system ()
   "Test that `elisp-read-source-file` can read Emacs system files."
   ;; Test reading a system file that should exist in all Emacs installations.
-  (let* ((system-file
-          (concat
-           (file-name-sans-extension (locate-library "subr")) ".el"))
+  (let* ((located (locate-library "subr"))
+         ;; Handle both .el and .el.gz files by stripping extensions properly
+         (base-path
+          (if (string-suffix-p ".gz" located)
+              ;; For .el.gz or .elc.gz: strip .gz, then strip .el/.elc
+              (file-name-sans-extension (file-name-sans-extension located))
+            ;; For .el or .elc: just strip the extension
+            (file-name-sans-extension located)))
+         (system-file (concat base-path ".el"))
          (text (elisp-dev-mcp-test--read-source-file system-file)))
     ;; Should contain typical Emacs system file content
     ;; (works with both compressed .el.gz and uncompressed .el files)
