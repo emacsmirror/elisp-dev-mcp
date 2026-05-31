@@ -17,7 +17,7 @@
 
 ;; Author: Laurynas Biveinis
 ;; Version: 1.2.0
-;; Package-Requires: ((emacs "27.1") (mcp-server-lib "0.2.0"))
+;; Package-Requires: ((emacs "27.1") (mcp-server-lib "0.3.0"))
 ;; Keywords: tools, development
 ;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
 
@@ -773,12 +773,15 @@ MCP Parameters:
 ;;;###autoload
 (defun elisp-dev-mcp-enable ()
   "Enable the Elisp development MCP tools."
-  (mcp-server-lib-register-tool
-   #'elisp-dev-mcp--describe-function
-   :id "elisp-describe-function"
-   :server-id elisp-dev-mcp--server-id
-   :description
-   "Get documentation for an Emacs Lisp function or check if it exists. Returns
+  (mcp-server-lib-register-server
+   :id elisp-dev-mcp--server-id
+   :tools
+   (list
+    (list
+     #'elisp-dev-mcp--describe-function
+     :id "elisp-describe-function"
+     :description
+     "Get documentation for an Emacs Lisp function or check if it exists. Returns
 function documentation from the current running Emacs environment, including all
 currently loaded packages and libraries.
 
@@ -798,13 +801,12 @@ Returns formatted documentation including:
 Error cases:
 - Non-existent functions return 'Function X is void'
 - Invalid input types return 'Error: ...'"
-   :read-only t)
-  (mcp-server-lib-register-tool
-   #'elisp-dev-mcp--get-function-definition
-   :id "elisp-get-function-definition"
-   :server-id elisp-dev-mcp--server-id
-   :description
-   "Get the source code definition of an Emacs Lisp function with any header
+     :read-only t)
+    (list
+     #'elisp-dev-mcp--get-function-definition
+     :id "elisp-get-function-definition"
+     :description
+     "Get the source code definition of an Emacs Lisp function with any header
 comments. Returns source code with file path and 1-based line numbers. For
 functions defined in C, returns a suggestion to call elisp-describe-function
 tool instead.
@@ -829,13 +831,12 @@ Use this tool when you need to:
 - View or analyze function implementation
 - Extract function source for modification
 - Understand function structure with comments"
-   :read-only t)
-  (mcp-server-lib-register-tool
-   #'elisp-dev-mcp--describe-variable
-   :id "elisp-describe-variable"
-   :server-id elisp-dev-mcp--server-id
-   :description
-   "Get comprehensive information about an Emacs Lisp variable without
+     :read-only t)
+    (list
+     #'elisp-dev-mcp--describe-variable
+     :id "elisp-describe-variable"
+     :description
+     "Get comprehensive information about an Emacs Lisp variable without
 exposing its value. Essential for understanding variable definitions,
 types, and relationships in Elisp code.
 
@@ -881,13 +882,12 @@ eval when exploring variables.
 Error cases return error messages for:
 - Non-string input
 - Completely undefined variables (no binding, no documentation, no properties)"
-   :read-only t)
-  (mcp-server-lib-register-tool
-   #'elisp-dev-mcp--info-lookup-symbol
-   :id "elisp-info-lookup-symbol"
-   :server-id elisp-dev-mcp--server-id
-   :description
-   "Look up Elisp symbols in Info documentation and return the complete
+     :read-only t)
+    (list
+     #'elisp-dev-mcp--info-lookup-symbol
+     :id "elisp-info-lookup-symbol"
+     :description
+     "Look up Elisp symbols in Info documentation and return the complete
 documentation node. Returns the full content of the Info node containing
 the symbol's documentation from the Emacs Lisp Reference Manual.
 
@@ -923,13 +923,12 @@ Error cases:
 - Symbol not found in documentation
 - Invalid symbol name
 - Info system unavailable"
-   :read-only t)
-  (mcp-server-lib-register-tool
-   #'elisp-dev-mcp--read-source-file
-   :id "elisp-read-source-file"
-   :server-id elisp-dev-mcp--server-id
-   :description
-   "Read Elisp source files from Emacs system directories or ELPA packages.
+     :read-only t)
+    (list
+     #'elisp-dev-mcp--read-source-file
+     :id "elisp-read-source-file"
+     :description
+     "Read Elisp source files from Emacs system directories or ELPA packages.
 Accepts either library names or absolute file paths.
 
 Parameters:
@@ -964,21 +963,12 @@ Error cases:
 - Path traversal attempts
 - Access outside allowed directories
 - File not found"
-   :read-only t))
+     :read-only t))))
 
 ;;;###autoload
 (defun elisp-dev-mcp-disable ()
   "Disable the Elisp development MCP tools."
-  (mcp-server-lib-unregister-tool
-   "elisp-describe-function" elisp-dev-mcp--server-id)
-  (mcp-server-lib-unregister-tool
-   "elisp-get-function-definition" elisp-dev-mcp--server-id)
-  (mcp-server-lib-unregister-tool
-   "elisp-describe-variable" elisp-dev-mcp--server-id)
-  (mcp-server-lib-unregister-tool
-   "elisp-info-lookup-symbol" elisp-dev-mcp--server-id)
-  (mcp-server-lib-unregister-tool
-   "elisp-read-source-file" elisp-dev-mcp--server-id))
+  (mcp-server-lib-unregister-server elisp-dev-mcp--server-id))
 
 (provide 'elisp-dev-mcp)
 ;;; elisp-dev-mcp.el ends here
