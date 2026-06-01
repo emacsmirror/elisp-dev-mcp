@@ -16,7 +16,6 @@
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;; Author: Laurynas Biveinis
-;; Version: 0.1.0
 ;; Package-Requires: ((emacs "24.1"))
 ;; Keywords: tools, development
 ;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
@@ -536,7 +535,7 @@ Any tool not found will be nil in the list."
   "Test that `elisp-get-function-definition' MCP handler works correctly."
   (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--without-header-comment" 58 61
+     "elisp-dev-mcp-test--without-header-comment" 57 60
      "(defun elisp-dev-mcp-test--without-header-comment (value)
   \"Simple function without a header comment.
 VALUE is multiplied by 2.\"
@@ -580,7 +579,7 @@ VALUE is multiplied by 2.\"
   "Test that `elisp-get-function-definition' includes header comments."
   (elisp-dev-mcp-test--with-server
     (elisp-dev-mcp-test--verify-definition-in-test-file
-     "elisp-dev-mcp-test--with-header-comment" 43 53
+     "elisp-dev-mcp-test--with-header-comment" 42 52
      ";; This is a header comment that should be included
 ;; when extracting the function definition
 (defun elisp-dev-mcp-test--with-header-comment (arg1 arg2)
@@ -949,8 +948,8 @@ auto-compression-mode enabled."
        (string=
         (file-name-nondirectory file-path)
         "elisp-dev-mcp-dynamic-test.el"))
-      (should (= start-line 31))
-      (should (= end-line 41))
+      (should (= start-line 30))
+      (should (= end-line 40))
       (should
        (string=
         source
@@ -1577,8 +1576,8 @@ X and Y are dynamically scoped arguments."
      (string=
       (file-name-nondirectory file-path)
       "elisp-dev-mcp-bytecode-test.el"))
-    (should (= start-line 32))
-    (should (= end-line 37))
+    (should (= start-line 31))
+    (should (= end-line 36))
     (should
      (string-match-p
       ";; Header comment for byte-compiled function" source))
@@ -1623,6 +1622,50 @@ X and Y are dynamically scoped arguments."
        "(defun elisp-dev-mcp-bytecode-test--empty-docstring (n)\n"
        "  \"\"\n"
        "  (* n 2))")))))
+
+;;; Meta tests
+
+(defconst elisp-dev-mcp-test--repo-root
+  (file-name-directory (locate-library "elisp-dev-mcp-test"))
+  "Repository root directory, for meta tests that read project files by name.")
+
+(defun elisp-dev-mcp-test--read-repo-file (relative-name)
+  "Return the contents of RELATIVE-NAME under the repository root."
+  (with-temp-buffer
+    (insert-file-contents
+     (expand-file-name relative-name elisp-dev-mcp-test--repo-root))
+    (buffer-string)))
+
+(ert-deftest elisp-dev-mcp-test-meta-version-strings-agree ()
+  "Test that the package version is consistent across all sites.
+The `Eask' file's `(package ...)' form, `elisp-dev-mcp.el's
+`;; Version:' header, and `NEWS' top-section heading must all report
+the same version; drift between them leads to MELPA/Eask metadata
+inconsistencies at release time and to changelog/release-state
+confusion."
+  (let* ((eask-content (elisp-dev-mcp-test--read-repo-file "Eask"))
+         (el-content (elisp-dev-mcp-test--read-repo-file "elisp-dev-mcp.el"))
+         (news-content (elisp-dev-mcp-test--read-repo-file "NEWS"))
+         (eask-version
+          (and (string-match
+                "(package[ \t\n]+\"[^\"]+\"[ \t\n]+\"\\([^\"]+\\)\""
+                eask-content)
+               (match-string 1 eask-content)))
+         (el-version
+          (and (string-match
+                "^;;[ \t]+Version:[ \t]+\\(\\S-+\\)"
+                el-content)
+               (match-string 1 el-content)))
+         (news-version
+          (and (string-match
+                "^\\* elisp-dev-mcp \\(\\S-+\\)"
+                news-content)
+               (match-string 1 news-content))))
+    (should (stringp eask-version))
+    (should (stringp el-version))
+    (should (stringp news-version))
+    (should (equal eask-version el-version))
+    (should (equal eask-version news-version))))
 
 (provide 'elisp-dev-mcp-test)
 ;;; elisp-dev-mcp-test.el ends here

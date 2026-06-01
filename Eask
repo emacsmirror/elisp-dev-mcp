@@ -1,5 +1,5 @@
 (package "elisp-dev-mcp"
-         "1.2.0"
+         "1.3.0"
          "MCP server for agentic Elisp development")
 
 (website-url "https://github.com/laurynas-biveinis/elisp-dev-mcp")
