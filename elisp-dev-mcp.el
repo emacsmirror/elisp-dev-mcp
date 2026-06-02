@@ -17,7 +17,7 @@
 
 ;; Author: Laurynas Biveinis
 ;; Version: 1.3.0
-;; Package-Requires: ((emacs "27.1") (mcp-server-lib "0.3.0"))
+;; Package-Requires: ((emacs "27.1") (mcp-server-lib "0.4.0"))
 ;; Keywords: tools, development
 ;; URL: https://github.com/laurynas-biveinis/elisp-dev-mcp
 
@@ -775,6 +775,8 @@ MCP Parameters:
   "Enable the Elisp development MCP tools."
   (mcp-server-lib-register-server
    :id elisp-dev-mcp--server-id
+   :name elisp-dev-mcp--server-id
+   :version "1.3.0"
    :tools
    (list
     (list

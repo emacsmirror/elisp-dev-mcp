@@ -1639,10 +1639,11 @@ X and Y are dynamically scoped arguments."
 (ert-deftest elisp-dev-mcp-test-meta-version-strings-agree ()
   "Test that the package version is consistent across all sites.
 The `Eask' file's `(package ...)' form, `elisp-dev-mcp.el's
-`;; Version:' header, and `NEWS' top-section heading must all report
+`;; Version:' header, the `:version' reported to MCP clients by the
+server registration, and `NEWS' top-section heading must all report
 the same version; drift between them leads to MELPA/Eask metadata
-inconsistencies at release time and to changelog/release-state
-confusion."
+inconsistencies at release time, to a wrong `serverInfo.version' over
+the protocol, and to changelog/release-state confusion."
   (let* ((eask-content (elisp-dev-mcp-test--read-repo-file "Eask"))
          (el-content (elisp-dev-mcp-test--read-repo-file "elisp-dev-mcp.el"))
          (news-content (elisp-dev-mcp-test--read-repo-file "NEWS"))
@@ -1656,6 +1657,11 @@ confusion."
                 "^;;[ \t]+Version:[ \t]+\\(\\S-+\\)"
                 el-content)
                (match-string 1 el-content)))
+         (reg-version
+          (and (string-match
+                "^[ \t]+:version[ \t]+\"\\([^\"]+\\)\""
+                el-content)
+               (match-string 1 el-content)))
          (news-version
           (and (string-match
                 "^\\* elisp-dev-mcp \\(\\S-+\\)"
@@ -1663,8 +1669,10 @@ confusion."
                (match-string 1 news-content))))
     (should (stringp eask-version))
     (should (stringp el-version))
+    (should (stringp reg-version))
     (should (stringp news-version))
     (should (equal eask-version el-version))
+    (should (equal eask-version reg-version))
     (should (equal eask-version news-version))))
 
 (provide 'elisp-dev-mcp-test)

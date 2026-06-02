@@ -8,7 +8,7 @@ This file is part of elisp-dev-mcp.
 
 ** Changes
 
-*** Now requires mcp-server-lib 0.3.0
+*** Now requires mcp-server-lib 0.4.0
 
 * elisp-dev-mcp 1.2.0 (2026-02-10)
 
