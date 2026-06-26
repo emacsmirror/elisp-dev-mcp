@@ -45,6 +45,10 @@ set -eu -o pipefail
 
 readonly SHELL_FILES=(check.sh)
 
+# Elisp files to format and lint: the package file plus the test suite. The
+# remaining *-test.el files are intentional fixtures and are left untouched.
+readonly ELISP_FILES=(elisp-dev-mcp.el elisp-dev-mcp-test.el)
+
 ERRORS=0
 ELISP_SYNTAX_FAILED=0
 SHELL_SYNTAX_FAILED=0
@@ -72,7 +76,7 @@ fi
 # Only run formatting if there are no syntax errors
 if [ $ELISP_SYNTAX_FAILED -eq 0 ]; then
 	echo -n "Running elisp-autofmt... "
-	if eask format elisp-autofmt; then
+	if eask format elisp-autofmt "${ELISP_FILES[@]}"; then
 		echo "OK!"
 	else
 		echo "elisp-autofmt failed!"
@@ -85,7 +89,7 @@ fi
 # Only run elisp-lint if there are no errors so far
 if [ $ERRORS -eq 0 ]; then
 	echo -n "Running elisp-lint... "
-	if eask lint elisp-lint; then
+	if eask lint elisp-lint "${ELISP_FILES[@]}"; then
 		echo "OK!"
 	else
 		echo "elisp-lint failed"

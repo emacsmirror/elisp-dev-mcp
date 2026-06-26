@@ -87,7 +87,8 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
   (declare (indent defun) (debug t))
   `(let* ((source-file
            (expand-file-name "elisp-dev-mcp-bytecode-test.el"))
-          (bytecode-file (concat (file-name-sans-extension source-file) ".elc")))
+          (bytecode-file
+           (concat (file-name-sans-extension source-file) ".elc")))
      (unwind-protect
          (progn
            (should (byte-compile-file source-file))
@@ -100,9 +101,12 @@ Handles compilation, loading, and cleanup of elisp-dev-mcp-bytecode-test.el."
   "Execute BODY with compressed test file loaded.
 Loads elisp-dev-mcp-compressed-test.el.gz and cleans up the loaded function."
   (declare (indent defun) (debug t))
-  `(let* ((test-dir (file-name-directory (locate-library "elisp-dev-mcp-test")))
+  `(let* ((test-dir
+           (file-name-directory
+            (locate-library "elisp-dev-mcp-test")))
           (source-file
-           (expand-file-name "elisp-dev-mcp-compressed-test.el" test-dir))
+           (expand-file-name "elisp-dev-mcp-compressed-test.el"
+                             test-dir))
           (original-load-path load-path))
      (unwind-protect
          (progn
@@ -115,15 +119,18 @@ Loads elisp-dev-mcp-compressed-test.el.gz and cleans up the loaded function."
            (should (load "elisp-dev-mcp-compressed-test" nil t))
            ,@body)
        (setq load-path original-load-path)
-       (fmakunbound 'elisp-dev-mcp-compressed-test--sample-function))))
+       (fmakunbound
+        'elisp-dev-mcp-compressed-test--sample-function))))
 
 (defmacro elisp-dev-mcp-test--with-temp-dir (var prefix &rest body)
-  "Execute BODY with VAR bound to a temp directory, deleted recursively on cleanup.
+  "Execute BODY with VAR bound to a temp directory.
+The directory is deleted recursively on cleanup.
 PREFIX is passed to `make-temp-file'."
   (declare (indent 2) (debug t))
   `(let ((,var (make-temp-file ,prefix t)))
      (unwind-protect
-         (progn ,@body)
+         (progn
+           ,@body)
        (when (file-directory-p ,var)
          (delete-directory ,var t)))))
 
@@ -214,7 +221,9 @@ Returns the parsed JSON response."
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              tool-name 1 `((,param-name . ""))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp (format "Empty %s name" param-name)))))
 
@@ -224,7 +233,9 @@ Returns the parsed JSON response."
     (let* ((req
             (mcp-server-lib-create-tools-call-request
              tool-name 1 `((,param-name . 123))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp (format "Invalid %s name" param-name)))))
 
@@ -232,9 +243,10 @@ Returns the parsed JSON response."
     (function-name)
   "Get function definition response data for FUNCTION-NAME.
 Returns the parsed JSON response object."
-  (let ((text (mcp-server-lib-ert-call-tool
-               "elisp-get-function-definition"
-               `((function . ,function-name)))))
+  (let ((text
+         (mcp-server-lib-ert-call-tool
+          "elisp-get-function-definition"
+          `((function . ,function-name)))))
     (json-read-from-string text)))
 
 (defun elisp-dev-mcp-test--verify-definition-in-test-file
@@ -291,16 +303,21 @@ LIBRARY-OR-PATH can be a library name or absolute file path.
 Returns the file contents as a string."
   (elisp-dev-mcp-test--with-server
     (mcp-server-lib-ert-call-tool
-     "elisp-read-source-file" `((library-or-path . ,library-or-path)))))
+     "elisp-read-source-file"
+     `((library-or-path . ,library-or-path)))))
 
-(defun elisp-dev-mcp-test--verify-read-source-file-error
+(defun elisp-dev-mcp-test--verify-read-source-file-fails
     (library-or-path error-pattern)
   "Verify that reading LIBRARY-OR-PATH produces error matching ERROR-PATTERN."
   (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-read-source-file" 1 `((library-or-path . ,library-or-path))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+             "elisp-read-source-file"
+             1
+             `((library-or-path . ,library-or-path))))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp resp error-pattern))))
 
 ;;; Tests
@@ -308,8 +325,9 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-function ()
   "Test that `describe-function' MCP handler works correctly."
   (elisp-dev-mcp-test--with-server
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function" `((function . "defun")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function" `((function . "defun")))))
       (should (string-match-p "defun" text)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-nonexistent-function ()
@@ -317,9 +335,12 @@ Returns the file contents as a string."
   (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-describe-function" 1
+             "elisp-describe-function"
+             1
              `((function . "non-existent-function-xyz"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function non-existent-function-xyz is void"))))
 
@@ -338,26 +359,31 @@ Returns the file contents as a string."
   (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-describe-function" 1
+             "elisp-describe-function"
+             1
              `((function . "user-emacs-directory"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function user-emacs-directory is void"))))
 
 (ert-deftest elisp-dev-mcp-test-describe-macro ()
   "Test that `describe-function' MCP handler works correctly with macros."
   (elisp-dev-mcp-test--with-server
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function" `((function . "when")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function" `((function . "when")))))
       (should (string-match-p "when" text))
       (should (string-match-p "macro" text)))))
 
 (ert-deftest elisp-dev-mcp-test-describe-inline-function ()
   "Test that `describe-function' MCP handler works with inline functions."
   (elisp-dev-mcp-test--with-server
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function"
-                 `((function . "elisp-dev-mcp-test--inline-function")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function"
+            `((function . "elisp-dev-mcp-test--inline-function")))))
       (should
        (string-match-p "elisp-dev-mcp-test--inline-function" text))
       (should (string-match-p "inline" text)))))
@@ -365,9 +391,11 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-regular-function ()
   "Test that `describe-function' MCP handler works with regular defun."
   (elisp-dev-mcp-test--with-server
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function"
-                 `((function . "elisp-dev-mcp-test--with-header-comment")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function"
+            `((function .
+                        "elisp-dev-mcp-test--with-header-comment")))))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -387,9 +415,12 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-function-no-docstring ()
   "Test `describe-function' MCP handler with undocumented functions."
   (elisp-dev-mcp-test--with-server
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function"
-                 `((function . "elisp-dev-mcp-no-checkdoc-test--no-docstring")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function"
+            `((function
+               .
+               "elisp-dev-mcp-no-checkdoc-test--no-docstring")))))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -405,9 +436,12 @@ Returns the file contents as a string."
 (ert-deftest elisp-dev-mcp-test-describe-function-empty-docstring ()
   "Test `describe-function' MCP handler with empty docstring functions."
   (elisp-dev-mcp-test--with-server
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function"
-                 `((function . "elisp-dev-mcp-no-checkdoc-test--empty-docstring")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function"
+            `((function
+               .
+               "elisp-dev-mcp-no-checkdoc-test--empty-docstring")))))
       ;; Should contain the function name
       (should
        (string-match-p
@@ -433,7 +467,9 @@ Returns a list of our registered tools in the order:
 info-lookup-tool read-source-file-tool).
 Any tool not found will be nil in the list."
   (let* ((req (mcp-server-lib-create-tools-list-request))
-         (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id))
+         (resp
+          (mcp-server-lib-process-jsonrpc-parsed
+           req mcp-server-lib-ert-server-id))
          (result (assoc-default 'result resp))
          (tools (assoc-default 'tools result))
          (describe-function-tool nil)
@@ -467,15 +503,11 @@ Any tool not found will be nil in the list."
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-empty-string ()
   "Test that empty string input is rejected with appropriate error."
-  (elisp-dev-mcp-test--verify-read-source-file-error
-   ""
-   "Invalid"))
+  (elisp-dev-mcp-test--verify-read-source-file-fails "" "Invalid"))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-whitespace-only ()
   "Test that whitespace-only string input is rejected with appropriate error."
-  (elisp-dev-mcp-test--verify-read-source-file-error
-   "   "
-   "Invalid"))
+  (elisp-dev-mcp-test--verify-read-source-file-fails "   " "Invalid"))
 
 (ert-deftest elisp-dev-mcp-test-tools-registration-and-unregistration
     ()
@@ -546,9 +578,12 @@ VALUE is multiplied by 2.\"
   (elisp-dev-mcp-test--with-server
     (let* ((req
             (mcp-server-lib-create-tools-call-request
-             "elisp-get-function-definition" 1
+             "elisp-get-function-definition"
+             1
              `((function . "non-existent-function-xyz"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function non-existent-function-xyz is not found"))))
 
@@ -655,9 +690,10 @@ D captures remaining arguments."
 (ert-deftest elisp-dev-mcp-test-describe-function-alias ()
   "Test that `describe-function' MCP handler works with function aliases."
   (elisp-dev-mcp-test--with-server
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function"
-                 `((function . "elisp-dev-mcp-test--aliased-function")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function"
+            `((function . "elisp-dev-mcp-test--aliased-function")))))
 
       ;; Should indicate it's an alias
       (should (string-match-p "alias" text))
@@ -718,7 +754,7 @@ D captures remaining arguments."
       (should (string-match-p "docstring" message)))))
 
 (ert-deftest elisp-dev-mcp-test-get-function-definition-compressed ()
-  "Test that `elisp-get-function-definition' reads from compressed .el.gz files."
+  "Test `elisp-get-function-definition' reads from compressed .el.gz files."
   (elisp-dev-mcp-test--with-compressed-file
     (elisp-dev-mcp-test--with-server
       (let* ((parsed-resp
@@ -728,17 +764,23 @@ D captures remaining arguments."
              (file-path (assoc-default 'file-path parsed-resp)))
         ;; Verify we got the definition from .gz file
         (should source)
-        (should (string-match-p
-                 "defun elisp-dev-mcp-compressed-test--sample-function" source))
+        (should
+         (string-match-p
+          "defun elisp-dev-mcp-compressed-test--sample-function"
+          source))
         (should (string-match-p "Header comment" source))
-        (should (string-match-p "elisp-dev-mcp-compressed-test\\.el" file-path))))))
+        (should
+         (string-match-p
+          "elisp-dev-mcp-compressed-test\\.el" file-path))))))
 
-(ert-deftest elisp-dev-mcp-test-get-function-definition-compressed-no-auto-mode
+(ert-deftest
+    elisp-dev-mcp-test-get-function-definition-compressed-no-auto-mode
     ()
-  "Test `elisp-get-function-definition' reads .el.gz when auto-compression-mode is nil.
+  "Read .el.gz via `elisp-get-function-definition' with compression mode off.
 This verifies that the code can read from .gz files even without
-auto-compression-mode enabled."
-  (let ((test-dir (file-name-directory (locate-library "elisp-dev-mcp-test")))
+`auto-compression-mode' enabled."
+  (let ((test-dir
+         (file-name-directory (locate-library "elisp-dev-mcp-test")))
         (original-load-path load-path)
         (original-auto-compression-mode auto-compression-mode))
     (unwind-protect
@@ -746,39 +788,48 @@ auto-compression-mode enabled."
           ;; Add test dir to load-path so find-lisp-object-file-name works
           (push test-dir load-path)
           ;; Verify setup: only .gz exists
-          (should (file-exists-p
-                   (expand-file-name
-                    "elisp-dev-mcp-compressed-test.el.gz" test-dir)))
-          (should-not (file-exists-p
-                       (expand-file-name
-                        "elisp-dev-mcp-compressed-test.el" test-dir)))
+          (should
+           (file-exists-p
+            (expand-file-name "elisp-dev-mcp-compressed-test.el.gz"
+                              test-dir)))
+          (should-not
+           (file-exists-p
+            (expand-file-name "elisp-dev-mcp-compressed-test.el"
+                              test-dir)))
           ;; Load using library name (not full path) so load-history is correct
           (load "elisp-dev-mcp-compressed-test" nil t)
           ;; Verify find-lisp-object-file-name returns the .gz path
-          (should (string-suffix-p
-                   ".gz"
-                   (find-lisp-object-file-name
-                    'elisp-dev-mcp-compressed-test--sample-function 'defun)))
+          (should
+           (string-suffix-p
+            ".gz"
+            (find-lisp-object-file-name
+             'elisp-dev-mcp-compressed-test--sample-function 'defun)))
           ;; Now disable auto-compression-mode
           (auto-compression-mode -1)
           ;; Call the MCP tool - should succeed in reading .gz file
           (elisp-dev-mcp-test--with-server
-            (let* ((parsed-resp
-                    (elisp-dev-mcp-test--get-definition-response-data
-                     "elisp-dev-mcp-compressed-test--sample-function"))
-                   (source (assoc-default 'source parsed-resp))
-                   (file-path (assoc-default 'file-path parsed-resp)))
+            (let*
+                ((parsed-resp
+                  (elisp-dev-mcp-test--get-definition-response-data
+                   "elisp-dev-mcp-compressed-test--sample-function"))
+                 (source (assoc-default 'source parsed-resp))
+                 (file-path (assoc-default 'file-path parsed-resp)))
               ;; Verify we got the definition from .gz file
               (should source)
-              (should (string-match-p
-                       "defun elisp-dev-mcp-compressed-test--sample-function"
-                       source))
+              (should
+               (string-match-p
+                "defun elisp-dev-mcp-compressed-test--sample-function"
+                source))
               (should (string-match-p "Header comment" source))
-              (should (string-match-p
-                       "elisp-dev-mcp-compressed-test\\.el" file-path)))))
+              (should
+               (string-match-p
+                "elisp-dev-mcp-compressed-test\\.el" file-path)))))
       ;; Cleanup
       (setq load-path original-load-path)
-      (auto-compression-mode (if original-auto-compression-mode 1 -1))
+      (auto-compression-mode
+       (if original-auto-compression-mode
+           1
+         -1))
       (fmakunbound 'elisp-dev-mcp-compressed-test--sample-function))))
 
 (ert-deftest elisp-dev-mcp-test-get-empty-string-function-definition
@@ -790,10 +841,14 @@ auto-compression-mode enabled."
 (ert-deftest elisp-dev-mcp-test-get-variable-as-function-definition ()
   "Test that `elisp-get-function-definition' handles variable names properly."
   (elisp-dev-mcp-test--with-server
-    (let* ((req (mcp-server-lib-create-tools-call-request
-                 "elisp-get-function-definition" 1
-                 `((function . "load-path"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+    (let* ((req
+            (mcp-server-lib-create-tools-call-request
+             "elisp-get-function-definition"
+             1
+             `((function . "load-path"))))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Function load-path is not found"))))
 
@@ -907,9 +962,12 @@ auto-compression-mode enabled."
     (require 'elisp-dev-mcp-dynamic-test)
 
     ;; Test describe-function with dynamic binding function.
-    (let ((text (mcp-server-lib-ert-call-tool
-                 "elisp-describe-function"
-                 `((function . "elisp-dev-mcp-dynamic-test--with-header-comment")))))
+    (let ((text
+           (mcp-server-lib-ert-call-tool
+            "elisp-describe-function"
+            `((function
+               .
+               "elisp-dev-mcp-dynamic-test--with-header-comment")))))
 
       ;; Should contain the function name
       (should
@@ -982,9 +1040,10 @@ X and Y are dynamically scoped arguments."
                        (* z 2)))
                   nil)
 
-            (let ((text (mcp-server-lib-ert-call-tool
-                         "elisp-describe-function"
-                         `((function . ,test-function-name)))))
+            (let ((text
+                   (mcp-server-lib-ert-call-tool
+                    "elisp-describe-function"
+                    `((function . ,test-function-name)))))
               (should (string-match-p test-function-name text))
               (elisp-dev-mcp-test--check-dynamic-text text)
               (should
@@ -1014,7 +1073,9 @@ X and Y are dynamically scoped arguments."
              "elisp-describe-variable"
              1
              `((variable . "non-existent-variable-xyz"))))
-           (resp (mcp-server-lib-process-jsonrpc-parsed req mcp-server-lib-ert-server-id)))
+           (resp
+            (mcp-server-lib-process-jsonrpc-parsed
+             req mcp-server-lib-ert-server-id)))
       (elisp-dev-mcp-test--verify-error-resp
        resp "Variable non-existent-variable-xyz is not bound"))))
 
@@ -1322,29 +1383,36 @@ X and Y are dynamically scoped arguments."
 (ert-deftest elisp-dev-mcp-test-read-source-file-system ()
   "Test that `elisp-read-source-file` can read Emacs system files."
   ;; Test reading a system file that should exist in all Emacs installations.
-  (let* ((located (locate-library "subr"))
-         ;; Handle both .el and .el.gz files by stripping extensions properly
-         (base-path
-          (if (string-suffix-p ".gz" located)
-              ;; For .el.gz or .elc.gz: strip .gz, then strip .el/.elc
-              (file-name-sans-extension (file-name-sans-extension located))
-            ;; For .el or .elc: just strip the extension
-            (file-name-sans-extension located)))
-         ;; Check which file actually exists (.el or .el.gz)
-         (el-path (concat base-path ".el"))
-         (el-gz-path (concat base-path ".el.gz"))
-         (system-file
-          (cond
-           ((file-exists-p el-path) el-path)
-           ((file-exists-p el-gz-path) el-gz-path)
-           (t (error "Neither %s nor %s exists" el-path el-gz-path))))
-         (text (elisp-dev-mcp-test--read-source-file system-file)))
+  (let*
+      ((located (locate-library "subr"))
+       ;; Handle both .el and .el.gz files by stripping extensions properly
+       (base-path
+        (if (string-suffix-p ".gz" located)
+            ;; For .el.gz or .elc.gz: strip .gz, then strip .el/.elc
+            (file-name-sans-extension
+             (file-name-sans-extension located))
+          ;; For .el or .elc: just strip the extension
+          (file-name-sans-extension located)))
+       ;; Check which file actually exists (.el or .el.gz)
+       (el-path (concat base-path ".el"))
+       (el-gz-path (concat base-path ".el.gz"))
+       (system-file
+        (cond
+         ((file-exists-p el-path)
+          el-path)
+         ((file-exists-p el-gz-path)
+          el-gz-path)
+         (t
+          (error "Neither %s nor %s exists" el-path el-gz-path))))
+       (text (elisp-dev-mcp-test--read-source-file system-file)))
     ;; Should contain typical Emacs system file content
     ;; (works with both compressed .el.gz and uncompressed .el files)
     (should (string-match-p ";;; subr.el" text))
     (should (string-match-p "GNU Emacs" text))))
 
-(ert-deftest elisp-dev-mcp-test-read-source-file-by-library-name-system ()
+(ert-deftest
+    elisp-dev-mcp-test-read-source-file-by-library-name-system
+    ()
   "Test that `elisp-read-source-file` can read system library by name."
   ;; Test reading a system library by name (not absolute path).
   (let ((text (elisp-dev-mcp-test--read-source-file "subr")))
@@ -1353,13 +1421,15 @@ X and Y are dynamically scoped arguments."
     ;; Should contain typical system library content
     (should (string-match-p "GNU Emacs" text))))
 
-(ert-deftest elisp-dev-mcp-test-read-source-file-by-library-name-elpa ()
+(ert-deftest elisp-dev-mcp-test-read-source-file-by-library-name-elpa
+    ()
   "Test that `elisp-read-source-file` can read ELPA library by name."
   ;; Test reading an ELPA package by library name.
   ;; In test environments, we need to ensure locate-library finds the package
   ;; in the test package directory, not in the user's global emacs directory.
   ;; We do this by temporarily modifying load-path.
-  (let* ((test-pkg-dir (expand-file-name "elpa/" user-emacs-directory))
+  (let* ((test-pkg-dir
+          (expand-file-name "elpa/" user-emacs-directory))
          ;; Save original load-path
          (original-load-path load-path)
          ;; Build new load-path with only test and system directories
@@ -1372,39 +1442,54 @@ X and Y are dynamically scoped arguments."
            (cl-remove-if
             (lambda (dir)
               (and (stringp dir)
-                   (string-prefix-p (expand-file-name "~/.emacs.d/") dir)))
+                   (string-prefix-p
+                    (expand-file-name "~/.emacs.d/") dir)))
             load-path))))
     (unwind-protect
         (progn
           (setq load-path test-load-path)
-          (let ((text (elisp-dev-mcp-test--read-source-file "mcp-server-lib")))
+          (let ((text
+                 (elisp-dev-mcp-test--read-source-file
+                  "mcp-server-lib")))
             ;; Should contain the file header
             (should (string-match-p ";;; mcp-server-lib.el" text))
             ;; Should contain package metadata
             (should (string-match-p "Model Context Protocol" text))
             ;; Should end with proper footer
-            (should (string-match-p ";;; mcp-server-lib.el ends here" text))))
+            (should
+             (string-match-p
+              ";;; mcp-server-lib.el ends here" text))))
       ;; Restore original load-path
       (setq load-path original-load-path))))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-library-not-found ()
   "Test that `elisp-read-source-file` handles nonexistent libraries."
   ;; Test that a nonexistent library name produces an appropriate error.
-  (elisp-dev-mcp-test--verify-read-source-file-error
+  (elisp-dev-mcp-test--verify-read-source-file-fails
    "nonexistent-library-xyz-12345"
    "Library not found: nonexistent-library-xyz-12345"))
 
-(ert-deftest elisp-dev-mcp-test-read-source-file-by-library-name-elc-gz ()
+(ert-deftest
+    elisp-dev-mcp-test-read-source-file-by-library-name-elc-gz
+    ()
   "Test that `elisp-read-source-file` handles .elc.gz compressed bytecode."
   ;; Test reading a library when locate-library returns .elc.gz.
   ;; This tests the fix for CR-001: proper handling of .elc.gz files.
   ;; The system should correctly resolve .elc.gz -> .el and find the source.
-  (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-elc-gz-test"
+  (elisp-dev-mcp-test--with-temp-dir temp-dir
+      "elisp-dev-mcp-elc-gz-test"
     (let* ((lib-name "test-elc-gz-lib")
-           (el-file (expand-file-name (concat lib-name ".el") temp-dir))
-           (elc-file (expand-file-name (concat lib-name ".elc") temp-dir))
+           (el-file
+            (expand-file-name (concat lib-name ".el") temp-dir))
+           (elc-file
+            (expand-file-name (concat lib-name ".elc") temp-dir))
            (elc-gz-file (concat elc-file ".gz"))
-           (test-content ";;; test-elc-gz-lib.el --- Test library\n(defun test-func () \"test\")\n(provide 'test-elc-gz-lib)\n;;; test-elc-gz-lib.el ends here\n")
+           (test-content
+            (concat
+             ";;; test-elc-gz-lib.el --- Test library\n"
+             "(defun test-func () \"test\")\n"
+             "(provide 'test-elc-gz-lib)\n"
+             ";;; test-elc-gz-lib.el ends here\n"))
            (original-load-path load-path))
       ;; Create the source file
       (with-temp-file el-file
@@ -1427,8 +1512,10 @@ X and Y are dynamically scoped arguments."
               (should (string-suffix-p ".elc.gz" located)))
             ;; Reading by library name should correctly resolve to .el source
             ;; This verifies CR-001 fix: .elc.gz -> .elc -> .el conversion works
-            (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
-              (let ((text (elisp-dev-mcp-test--read-source-file lib-name)))
+            (let ((elisp-dev-mcp-additional-allowed-dirs
+                   (list temp-dir)))
+              (let ((text
+                     (elisp-dev-mcp-test--read-source-file lib-name)))
                 (should (string-match-p "test-elc-gz-lib.el" text))
                 (should (string-match-p "test-func" text)))))
         ;; Restore original load-path
@@ -1440,18 +1527,18 @@ X and Y are dynamically scoped arguments."
   (let ((test-path "relative/path.el")
         (error-pattern
          "Invalid path format: must be absolute path ending in .el"))
-    (elisp-dev-mcp-test--verify-read-source-file-error
+    (elisp-dev-mcp-test--verify-read-source-file-fails
      test-path error-pattern))
 
   ;; Test path not ending in .el.
   (let ((error-pattern
          "Invalid path format: must be absolute path ending in .el"))
-    (elisp-dev-mcp-test--verify-read-source-file-error
+    (elisp-dev-mcp-test--verify-read-source-file-fails
      "/absolute/path/file.elc" error-pattern))
 
   ;; Test path with .. traversal.
   (let ((error-pattern "Path contains illegal '..' traversal"))
-    (elisp-dev-mcp-test--verify-read-source-file-error
+    (elisp-dev-mcp-test--verify-read-source-file-fails
      "/some/path/../../../etc/passwd.el" error-pattern)))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-not-found ()
@@ -1462,7 +1549,7 @@ X and Y are dynamically scoped arguments."
          (non-existent-path
           (expand-file-name "non-existent-file.el" test-package-dir))
          (error-pattern "File not found:"))
-    (elisp-dev-mcp-test--verify-read-source-file-error
+    (elisp-dev-mcp-test--verify-read-source-file-fails
      non-existent-path error-pattern)))
 
 (ert-deftest elisp-dev-mcp-test-read-source-file-security ()
@@ -1470,7 +1557,7 @@ X and Y are dynamically scoped arguments."
   ;; Test access outside allowed directories.
   (let ((error-pattern
          "Access denied: path outside allowed directories"))
-    (elisp-dev-mcp-test--verify-read-source-file-error
+    (elisp-dev-mcp-test--verify-read-source-file-fails
      "/etc/passwd.el" error-pattern)))
 
 (ert-deftest elisp-dev-mcp-test-additional-allowed-dirs-default ()
@@ -1481,37 +1568,49 @@ X and Y are dynamically scoped arguments."
   "Test that `elisp-read-source-file` respects additional allowed directories."
   (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-test"
     (let* ((test-file (expand-file-name "test-package.el" temp-dir))
-           (test-content ";;; test-package.el --- Test package\n(provide 'test-package)\n;;; test-package.el ends here\n"))
+           (test-content
+            (concat
+             ";;; test-package.el --- Test package\n"
+             "(provide 'test-package)\n"
+             ";;; test-package.el ends here\n")))
       ;; Create test file
       (with-temp-file test-file
         (insert test-content))
       ;; First verify access is denied without configuration
       (let ((elisp-dev-mcp-additional-allowed-dirs nil))
-        (elisp-dev-mcp-test--verify-read-source-file-error
+        (elisp-dev-mcp-test--verify-read-source-file-fails
          test-file "Access denied: path outside allowed directories"))
       ;; Now add the directory to allowed list and verify access works
       (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
-        (let ((content (elisp-dev-mcp-test--read-source-file test-file)))
+        (let ((content
+               (elisp-dev-mcp-test--read-source-file test-file)))
           (should (string= content test-content)))))))
 
-(ert-deftest elisp-dev-mcp-test-read-source-file-additional-dirs-security ()
+(ert-deftest
+    elisp-dev-mcp-test-read-source-file-additional-dirs-security
+    ()
   "Test that additional directories don't compromise security."
   (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-test"
     (let ((allowed-file (expand-file-name "allowed.el" temp-dir))
           (forbidden-file "/etc/passwd.el"))
       ;; Create test file in allowed directory
       (with-temp-file allowed-file
-        (insert ";;; allowed.el --- Allowed file\n(provide 'allowed)\n"))
+        (insert
+         ";;; allowed.el --- Allowed file\n(provide 'allowed)\n"))
       ;; Configure additional directory
       (let ((elisp-dev-mcp-additional-allowed-dirs (list temp-dir)))
         ;; Should be able to read allowed file
-        (let ((content (elisp-dev-mcp-test--read-source-file allowed-file)))
+        (let ((content
+               (elisp-dev-mcp-test--read-source-file allowed-file)))
           (should (string-match-p "allowed.el" content)))
         ;; Should still be denied access to system files
-        (elisp-dev-mcp-test--verify-read-source-file-error
-         forbidden-file "Access denied: path outside allowed directories")))))
+        (elisp-dev-mcp-test--verify-read-source-file-fails
+         forbidden-file
+         "Access denied: path outside allowed directories")))))
 
-(ert-deftest elisp-dev-mcp-test-read-source-file-multiple-additional-dirs ()
+(ert-deftest
+    elisp-dev-mcp-test-read-source-file-multiple-additional-dirs
+    ()
   "Test that multiple additional directories work correctly."
   (elisp-dev-mcp-test--with-temp-dir temp-dir1 "elisp-dev-mcp-test1"
     (elisp-dev-mcp-test--with-temp-dir temp-dir2 "elisp-dev-mcp-test2"
@@ -1519,31 +1618,43 @@ X and Y are dynamically scoped arguments."
             (test-file2 (expand-file-name "package2.el" temp-dir2)))
         ;; Create test files
         (with-temp-file test-file1
-          (insert ";;; package1.el --- Package 1\n(provide 'package1)\n"))
+          (insert
+           ";;; package1.el --- Package 1\n(provide 'package1)\n"))
         (with-temp-file test-file2
-          (insert ";;; package2.el --- Package 2\n(provide 'package2)\n"))
+          (insert
+           ";;; package2.el --- Package 2\n(provide 'package2)\n"))
         ;; Configure multiple additional directories
         (let ((elisp-dev-mcp-additional-allowed-dirs
                (list temp-dir1 temp-dir2)))
           ;; Should be able to read from both directories
-          (let ((content1 (elisp-dev-mcp-test--read-source-file test-file1))
-                (content2 (elisp-dev-mcp-test--read-source-file test-file2)))
+          (let ((content1
+                 (elisp-dev-mcp-test--read-source-file test-file1))
+                (content2
+                 (elisp-dev-mcp-test--read-source-file test-file2)))
             (should (string-match-p "package1.el" content1))
             (should (string-match-p "package2.el" content2))))))))
 
-(ert-deftest elisp-dev-mcp-test-read-source-file-additional-dirs-normalization ()
-  "Test that additional directories are properly normalized with file-truename."
+(ert-deftest
+    elisp-dev-mcp-test-read-source-file-additional-dirs-normalization
+    ()
+  "Test additional directories are normalized via `file-truename'."
   (elisp-dev-mcp-test--with-temp-dir temp-dir "elisp-dev-mcp-test"
     (let ((test-file (expand-file-name "normalize-test.el" temp-dir))
           ;; Create a path without trailing slash
           (dir-without-slash (directory-file-name temp-dir)))
       ;; Create test file
       (with-temp-file test-file
-        (insert ";;; normalize-test.el --- Normalization test\n(provide 'normalize-test)\n"))
+        (insert
+         (concat
+          ";;; normalize-test.el --- Normalization test\n"
+          "(provide 'normalize-test)\n")))
       ;; Configure directory without trailing slash
-      (let ((elisp-dev-mcp-additional-allowed-dirs (list dir-without-slash)))
-        ;; Should still be able to read the file (path normalization should work)
-        (let ((content (elisp-dev-mcp-test--read-source-file test-file)))
+      (let ((elisp-dev-mcp-additional-allowed-dirs
+             (list dir-without-slash)))
+        ;; Should still be able to read the file: path normalization should
+        ;; work without the trailing slash.
+        (let ((content
+               (elisp-dev-mcp-test--read-source-file test-file)))
           (should (string-match-p "normalize-test.el" content)))))))
 
 (ert-deftest elisp-dev-mcp-test-describe-bytecode-function ()
@@ -1645,7 +1756,8 @@ the same version; drift between them leads to MELPA/Eask metadata
 inconsistencies at release time, to a wrong `serverInfo.version' over
 the protocol, and to changelog/release-state confusion."
   (let* ((eask-content (elisp-dev-mcp-test--read-repo-file "Eask"))
-         (el-content (elisp-dev-mcp-test--read-repo-file "elisp-dev-mcp.el"))
+         (el-content
+          (elisp-dev-mcp-test--read-repo-file "elisp-dev-mcp.el"))
          (news-content (elisp-dev-mcp-test--read-repo-file "NEWS"))
          (eask-version
           (and (string-match
@@ -1654,18 +1766,15 @@ the protocol, and to changelog/release-state confusion."
                (match-string 1 eask-content)))
          (el-version
           (and (string-match
-                "^;;[ \t]+Version:[ \t]+\\(\\S-+\\)"
-                el-content)
+                "^;;[ \t]+Version:[ \t]+\\(\\S-+\\)" el-content)
                (match-string 1 el-content)))
          (reg-version
           (and (string-match
-                "^[ \t]+:version[ \t]+\"\\([^\"]+\\)\""
-                el-content)
+                "^[ \t]+:version[ \t]+\"\\([^\"]+\\)\"" el-content)
                (match-string 1 el-content)))
          (news-version
           (and (string-match
-                "^\\* elisp-dev-mcp \\(\\S-+\\)"
-                news-content)
+                "^\\* elisp-dev-mcp \\(\\S-+\\)" news-content)
                (match-string 1 news-content))))
     (should (stringp eask-version))
     (should (stringp el-version))

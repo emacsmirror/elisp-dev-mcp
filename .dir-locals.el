@@ -3,4 +3,6 @@
                      (sentence-end-double-space . t)
                      (elisp-lint-indent-specs . ((elisp-dev-mcp-test--with-server . defun)
                                                   (elisp-dev-mcp-test--with-bytecode-file . defun)
-                                                 (elisp-dev-mcp--with-auto-compression . defun))))))
+                                                  (elisp-dev-mcp-test--with-compressed-file . defun)
+                                                  (elisp-dev-mcp-test--with-temp-dir . 2)
+                                                  (elisp-dev-mcp--with-auto-compression . 0))))))
