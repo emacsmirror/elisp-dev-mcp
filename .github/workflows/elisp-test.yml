@@ -58,7 +58,8 @@ jobs:
           eask package
           eask install
           eask compile
-          eask lint elisp-lint
+          # Keep file list in sync with ELISP_FILES in check.sh.
+          eask lint elisp-lint elisp-dev-mcp.el elisp-dev-mcp-test.el
           eask lint keywords
           eask lint regexps
           eask run script test

@@ -47,6 +47,7 @@ readonly SHELL_FILES=(check.sh)
 
 # Elisp files to format and lint: the package file plus the test suite. The
 # remaining *-test.el files are intentional fixtures and are left untouched.
+# Keep in sync with elisp-test.yml.
 readonly ELISP_FILES=(elisp-dev-mcp.el elisp-dev-mcp-test.el)
 
 ERRORS=0
